@@ -19,6 +19,12 @@
 #define NAMESPACESXP      249
 #define PACKAGESXP        248
 #define PERSISTSXP        247
+#define CLASSREFSXP       246
+#define GENERICREFSXP     245
+#define BCREPDEF          244
+#define BCREPREF          243
+#define EMPTYENV_SXP      242
+#define BASEENV_SXP       241
 
 #define CACHED_MASK (1<<5)
 #define HASHASH_MASK 1
@@ -37,6 +43,8 @@ struct out_stream {
   size_t len;
   hmap_sexp smap;
   FILE *stream;
+  struct R_outpstream_st rstream;
+  int ignored;
 };
 
 void out_stream_init(struct out_stream *os) {
@@ -90,12 +98,16 @@ void out_stream_drop(struct out_stream *os) {
 
 int get_flags(SEXP item) {
   int type = TYPEOF(item);
-  int hasflags = type != NILSXP && type != SYMSXP && type != ENVSXP;
+  // BCODESXP has flags, but we use base R to write it out, and that will
+  // include the flags already.
+  int hasflags = type != NILSXP && type != SYMSXP && type != ENVSXP &&
+    type != BCODESXP;
   if (!hasflags) return 0;
 
   int hasattr = hasflags && (type != CHARSXP && ATTRIB(item) != R_NilValue);
   int maytag = hasflags &&
-    (type == LISTSXP || type == LANGSXP || type == PROMSXP || type == DOTSXP);
+    (type == LISTSXP || type == LANGSXP || type == PROMSXP ||
+    type == DOTSXP);
   int hastag = type == CLOSXP || (maytag && TAG(item) != R_NilValue);
 
   int flags;
@@ -110,40 +122,143 @@ int get_flags(SEXP item) {
   return flags;
 }
 
-void write_item(struct out_stream *os, SEXP item) {
-  int flags = get_flags(item);
-  R_xlen_t len;
-  int len0;
+int write_hashed(struct out_stream *os, SEXP item) {
+  const hmap_sexp_value *hashval = NULL;
   size_t mapsize;
   int mapidx;
-  const hmap_sexp_value *hashval = NULL;
+  hashval = hmap_sexp_get(&os->smap, item);
+  if (hashval == NULL) {
+    mapsize = hmap_sexp_size(&os->smap);
+    hmap_sexp_insert(&os->smap, item, (int) mapsize);
+    return 0;
+  } else {
+    mapidx = hashval->second + 1;
+    if (mapidx > MAX_PACKED_INDEX) {
+      WRITE_INTEGER(os, REFSXP);
+      WRITE_INTEGER(os, mapidx);
+    } else {
+      WRITE_INTEGER(os, PACK_REF_INDEX(mapidx));
+    }
+    return 1;
+  }
+}
 
-  // It cannot be zero for non-NULL types
+void out_char_mem(R_outpstream_t stream, int c) {
+  struct out_stream *os = (struct out_stream*) stream->data;
+  if (os->ignored < 14) {
+    os->ignored += 1;
+  } else {
+    char cc = (char) c;
+    WRITE_BYTES(os, &cc, 1);
+  }
+}
+
+void out_bytes_mem(R_outpstream_t stream, void *buf, int length) {
+  struct out_stream *os = (struct out_stream*) stream->data;
+  if (os->ignored < 14) {
+    if (os->ignored + length <= 14) {
+      os->ignored += length;
+    } else {
+      int omit = 14 - os->ignored;
+      const char *cbuf = (const char*) buf;
+      os->ignored = 14;
+      WRITE_BYTES(os, cbuf + omit, length - omit);
+    }
+  } else {
+    WRITE_BYTES(os, buf, length);
+  }
+}
+
+void write_base_r(struct out_stream *os, SEXP item) {
+  struct R_outpstream_st out = os->rstream;
+  os->ignored = 0;
+  R_Serialize(item, &out);
+}
+
+void write_item(struct out_stream *os, SEXP item) {
+  R_xlen_t len;
+  int len0;
+  int hasattr;
+  int flags;
+
+tailcall:
+  // It cannot be zero for non-NULL types, it also cannot be a type
+  // that is hashed. Once we start hashing other types, we should omit
+  // writing the flags for the hashed items.
+  flags = get_flags(item);
+  hasattr = flags & HAS_ATTR_BIT_MASK;
   if (flags != 0) WRITE_INTEGER(os, flags);
 
   switch (TYPEOF(item)) {
+	case LISTSXP:
+	case LANGSXP:
+	case PROMSXP:
+	case DOTSXP:
+	    if (hasattr) write_item(os, ATTRIB(item));
+	    if (TAG(item) != R_NilValue) write_item(os, TAG(item));
+	    // TODO: if (BNDCELL_TAG(item)) R_expand_binding_value(item);
+	    write_item(os, CAR(item));
+        // recall with CDR
+	    item = CDR(item);
+	    goto tailcall;
+
+    case CLOSXP:
+	    if (hasattr) write_item(os, ATTRIB(item));
+	    write_item(os, CLOENV(item));
+	    write_item(os, FORMALS(item));
+	    item = BODY(item);
+	    goto tailcall;
 
     case SYMSXP:
-      hashval = hmap_sexp_get(&os->smap, item);
-      if (hashval == NULL) {
-        mapsize = hmap_sexp_size(&os->smap);
-        hmap_sexp_insert(&os->smap, item, (int) mapsize);
+      if (item == R_MissingArg) {
+        WRITE_INTEGER(os, MISSINGARG_SXP);
+      } else if (!write_hashed(os, item)) {
         WRITE_INTEGER(os, SYMSXP);
         write_item(os, PRINTNAME(item));
-      } else {
-        mapidx = hashval->second + 1;
-        if (mapidx > MAX_PACKED_INDEX) {
-          WRITE_INTEGER(os, REFSXP);
-          WRITE_INTEGER(os, mapidx);
-        } else {
-          WRITE_INTEGER(os, PACK_REF_INDEX(mapidx));
-        }
       }
       break;
 
     case ENVSXP:
+      if (item == R_EmptyEnv) {
+        WRITE_INTEGER(os, EMPTYENV_SXP);
+      }	else if (item == R_BaseEnv) {
+        WRITE_INTEGER(os, BASEENV_SXP);
+      } else if (item == R_GlobalEnv) {
+        WRITE_INTEGER(os, GLOBALENV_SXP);
+      } else if (item == R_BaseNamespace) {
+        WRITE_INTEGER(os, BASENAMESPACE_SXP);
+      } else if (!write_hashed(os, item)) {
+	    if (R_IsPackageEnv(item)) {
+	      SEXP name = R_PackageEnvName(item);
+          WRITE_INTEGER(os, PACKAGESXP);
+          WRITE_STRING(os, CHAR(STRING_ELT(name, 0)));
+        } else if (R_IsNamespaceEnv(item)) {
+          WRITE_INTEGER(os, NAMESPACESXP);
+          WRITE_STRING(
+            os,
+            CHAR(STRING_ELT(PROTECT(R_NamespaceEnvSpec(item)), 0))
+          );
+          UNPROTECT(1);
+        } else {
+          WRITE_INTEGER(os, ENVSXP);
+          WRITE_INTEGER(os, R_EnvironmentIsLocked(item) ? 1 : 0);
+          write_item(os, ENCLOS(item));
+	      write_item(os, FRAME(item));
+	      write_item(os, HASHTAB(item));
+	      write_item(os, ATTRIB(item));
+        }
+      }
+      break;
+
     case EXTPTRSXP:
+      if (!write_hashed(os, item)) {
+        write_item(os, EXTPTR_PROT(item));
+        write_item(os, EXTPTR_TAG(item));
+      }
+      break;
+
     case WEAKREFSXP:
+      // TODO
       break;
 
     case NILSXP:
@@ -178,6 +293,14 @@ void write_item(struct out_stream *os, SEXP item) {
       WRITE_VEC(os, REAL(item), len, sizeof(REAL(item)[0]));
       break;
 
+    case STRSXP:
+      len = XLENGTH(item);
+      WRITE_LENGTH(os, len);
+      for (R_xlen_t i = 0; i < len; i++) {
+		write_item(os, STRING_ELT(item, i));
+	  }
+      break;
+
     case VECSXP:
       len = XLENGTH(item);
       WRITE_LENGTH(os, len);
@@ -186,12 +309,25 @@ void write_item(struct out_stream *os, SEXP item) {
       }
       break;
 
+    case BCODESXP:
+      write_base_r(os, item);
+      break;
+
+    case RAWSXP:
+      len = XLENGTH(item);
+	  WRITE_LENGTH(os, len);
+      WRITE_BYTES(os, RAW(item), len);
+      break;
+
+    case S4SXP:
+      // Nothing to do, attributes come later
+      break;
+
     default:
       REprintf("Ignoring uninmplemented type %i\n", TYPEOF(item));
       break;
   }
-
-
+  if (hasattr) write_item(os, ATTRIB(item));
 }
 
 SEXP c_serialize(SEXP x, SEXP native_encoding) {
@@ -202,6 +338,19 @@ SEXP c_serialize(SEXP x, SEXP native_encoding) {
   if (!os.stream) {
     R_THROW_POSIX_ERROR("Cannot open memory buffer for serialization");
   }
+
+  R_InitOutPStream(
+    &os.rstream,
+    (R_pstream_data_t) &os,
+    R_pstream_binary_format,
+    // we use version 2, because that is (almost) the same as version 3,
+    // and its header has a fixed size. For ALTREP, we'll need version 3.
+    /* version = */ 2,
+    out_char_mem,
+    out_bytes_mem,
+    /* phook = */ NULL,
+    /* pdata = */ R_NilValue
+  );
 
   WRITE_STRING(&os, "B\n");
   WRITE_INTEGER(&os, 3);
