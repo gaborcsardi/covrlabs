@@ -212,6 +212,8 @@ tailcall:
     case SYMSXP:
       if (item == R_MissingArg) {
         WRITE_INTEGER(os, MISSINGARG_SXP);
+      } else if (item == R_UnboundValue) {
+        WRITE_INTEGER(os, UNBOUNDVALUE_SXP);
       } else if (!write_hashed(os, item)) {
         WRITE_INTEGER(os, SYMSXP);
         write_item(os, PRINTNAME(item));
@@ -258,7 +260,8 @@ tailcall:
       break;
 
     case WEAKREFSXP:
-      // TODO
+      // this is just flags, but they have reference semantics
+      write_hashed(os, item);
       break;
 
     case NILSXP:
@@ -371,8 +374,18 @@ SEXP c_serialize(SEXP x, SEXP native_encoding) {
   return out;
 }
 
+SEXP c_missing_arg(void) {
+  return R_MissingArg;
+}
+
+SEXP c_unbound_value(void) {
+  return R_UnboundValue;
+}
+
 static const R_CallMethodDef callMethods[]  = {
-  { "c_serialize", (DL_FUNC) &c_serialize, 2 },
+  { "c_serialize",     (DL_FUNC) &c_serialize,     2 },
+  { "c_missing_arg",   (DL_FUNC) &c_missing_arg,   0 },
+  { "c_unbound_value", (DL_FUNC) &c_unbound_value, 0 },
   { NULL, NULL, 0 }
 };
 

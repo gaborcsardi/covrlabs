@@ -9,3 +9,11 @@ native_encoding <- function() {
 serialize <- function(object) {
   .Call(c_serialize, object, the$native_encoding)
 }
+
+missing_arg <- function() {
+  .Call(c_missing_arg)
+}
+
+unbound_value <- function() {
+  .Call(c_unbound_value)
+}

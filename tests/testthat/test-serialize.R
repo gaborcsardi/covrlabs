@@ -3,11 +3,11 @@ test_that("NULL", {
 })
 
 test_that("R_UnboundValue", {
-  # TODO
+  expect_same_serialization(list(unbound_value()))
 })
 
 test_that("R_MissingArg", {
-  # TODO
+  expect_same_serialization(missing_arg())
 })
 
 test_that("ALTREP", {
@@ -28,6 +28,13 @@ test_that("ENVSXP", {
   expect_same_serialization(.BaseNamespaceEnv)
   # TODO expect_same_serialization(asNamespace("covrlabs"))
   # TODO expect_same_serialization(parent.env(asNamespace("covrlabs")))
+
+  e <- new.env(parent = emptyenv())
+  e2 <- new.env(parent = e)
+  e2$foo <- "bar"
+  e2$bar <- c(1:3, 4L)
+  e2$parent <- e
+  expect_same_serialization(e2)
 })
 
 test_that("LISTSXP", {
