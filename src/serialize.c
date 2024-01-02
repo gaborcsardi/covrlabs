@@ -98,10 +98,7 @@ void out_stream_drop(struct out_stream *os) {
 
 int get_flags(SEXP item) {
   int type = TYPEOF(item);
-  // BCODESXP has flags, but we use base R to write it out, and that will
-  // include the flags already.
-  int hasflags = type != NILSXP && type != SYMSXP && type != ENVSXP &&
-    type != BCODESXP;
+  int hasflags = type != NILSXP && type != SYMSXP && type != ENVSXP;
   if (!hasflags) return 0;
 
   int hasattr = hasflags && (type != CHARSXP && ATTRIB(item) != R_NilValue);
@@ -182,153 +179,188 @@ void write_item(struct out_stream *os, SEXP item) {
   int flags;
 
 tailcall:
-  // It cannot be zero for non-NULL types, it also cannot be a type
-  // that is hashed. Once we start hashing other types, we should omit
-  // writing the flags for the hashed items.
   flags = get_flags(item);
   hasattr = flags & HAS_ATTR_BIT_MASK;
-  if (flags != 0) WRITE_INTEGER(os, flags);
 
   switch (TYPEOF(item)) {
 	case LISTSXP:
 	case LANGSXP:
 	case PROMSXP:
 	case DOTSXP:
-	    if (hasattr) write_item(os, ATTRIB(item));
-	    if (TAG(item) != R_NilValue) write_item(os, TAG(item));
-	    // TODO: if (BNDCELL_TAG(item)) R_expand_binding_value(item);
-	    write_item(os, CAR(item));
-        // recall with CDR
-	    item = CDR(item);
-	    goto tailcall;
+    WRITE_INTEGER(os, flags);
+	  if (hasattr) write_item(os, ATTRIB(item));
+	  if (TAG(item) != R_NilValue) write_item(os, TAG(item));
+	  // if (BNDCELL_TAG(item)) R_expand_binding_value(item);
+	  write_item(os, CAR(item));
+    // recall with CDR
+	  item = CDR(item);
+	  goto tailcall;
 
-    case CLOSXP:
-	    if (hasattr) write_item(os, ATTRIB(item));
-	    write_item(os, CLOENV(item));
-	    write_item(os, FORMALS(item));
-	    item = BODY(item);
-	    goto tailcall;
+  case CLOSXP:
+    WRITE_INTEGER(os, flags);
+    if (hasattr) write_item(os, ATTRIB(item));
+    write_item(os, CLOENV(item));
+    write_item(os, FORMALS(item));
+    item = BODY(item);
+	  goto tailcall;
 
-    case SYMSXP:
-      if (item == R_MissingArg) {
-        WRITE_INTEGER(os, MISSINGARG_SXP);
-      } else if (item == R_UnboundValue) {
-        WRITE_INTEGER(os, UNBOUNDVALUE_SXP);
-      } else if (!write_hashed(os, item)) {
-        WRITE_INTEGER(os, SYMSXP);
-        write_item(os, PRINTNAME(item));
-      }
-      break;
+  case SYMSXP:
+    // no flags!
+    if (item == R_MissingArg) {
+      WRITE_INTEGER(os, MISSINGARG_SXP);
+    } else if (item == R_UnboundValue) {
+      WRITE_INTEGER(os, UNBOUNDVALUE_SXP);
+    } else if (!write_hashed(os, item)) {
+      WRITE_INTEGER(os, SYMSXP);
+      item = PRINTNAME(item);
+      goto tailcall;
+    }
+    break;
 
-    case ENVSXP:
-      if (item == R_EmptyEnv) {
-        WRITE_INTEGER(os, EMPTYENV_SXP);
-      }	else if (item == R_BaseEnv) {
-        WRITE_INTEGER(os, BASEENV_SXP);
-      } else if (item == R_GlobalEnv) {
-        WRITE_INTEGER(os, GLOBALENV_SXP);
-      } else if (item == R_BaseNamespace) {
-        WRITE_INTEGER(os, BASENAMESPACE_SXP);
-      } else if (!write_hashed(os, item)) {
-	    if (R_IsPackageEnv(item)) {
-	      SEXP name = R_PackageEnvName(item);
-          WRITE_INTEGER(os, PACKAGESXP);
-          WRITE_STRING(os, CHAR(STRING_ELT(name, 0)));
-        } else if (R_IsNamespaceEnv(item)) {
-          WRITE_INTEGER(os, NAMESPACESXP);
-          WRITE_STRING(
-            os,
-            CHAR(STRING_ELT(PROTECT(R_NamespaceEnvSpec(item)), 0))
-          );
-          UNPROTECT(1);
-        } else {
-          WRITE_INTEGER(os, ENVSXP);
-          WRITE_INTEGER(os, R_EnvironmentIsLocked(item) ? 1 : 0);
-          write_item(os, ENCLOS(item));
-	      write_item(os, FRAME(item));
-	      write_item(os, HASHTAB(item));
-	      write_item(os, ATTRIB(item));
+  case ENVSXP:
+    // no flags!
+    if (item == R_EmptyEnv) {
+      WRITE_INTEGER(os, EMPTYENV_SXP);
+    }	else if (item == R_BaseEnv) {
+      WRITE_INTEGER(os, BASEENV_SXP);
+    } else if (item == R_GlobalEnv) {
+      WRITE_INTEGER(os, GLOBALENV_SXP);
+    } else if (item == R_BaseNamespace) {
+      WRITE_INTEGER(os, BASENAMESPACE_SXP);
+    } else if (!write_hashed(os, item)) {
+      if (R_IsPackageEnv(item)) {
+        SEXP name = R_PackageEnvName(item);
+        WRITE_INTEGER(os, PACKAGESXP);
+        WRITE_INTEGER(os, 0);
+        len = XLENGTH(name);
+        WRITE_LENGTH(os, len);
+        for (R_xlen_t i = 0; i < len; i++) {
+          write_item(os, STRING_ELT(name, i));
         }
-      }
-      break;
-
-    case EXTPTRSXP:
-      if (!write_hashed(os, item)) {
-        write_item(os, EXTPTR_PROT(item));
-        write_item(os, EXTPTR_TAG(item));
-      }
-      break;
-
-    case WEAKREFSXP:
-      // this is just flags, but they have reference semantics
-      write_hashed(os, item);
-      break;
-
-    case NILSXP:
-      WRITE_INTEGER(os, NILVALUE_SXP);
-      break;
-
-    case CHARSXP:
-      if (item == NA_STRING) {
-		WRITE_INTEGER(os, -1);
+      } else if (R_IsNamespaceEnv(item)) {
+        WRITE_INTEGER(os, NAMESPACESXP);
+        WRITE_INTEGER(os, 0);
+        SEXP name = PROTECT(R_NamespaceEnvSpec(item));
+        len = XLENGTH(name);
+        WRITE_LENGTH(os, len);
+        for (R_xlen_t i = 0; i < len; i++) {
+          write_item(os, STRING_ELT(name, i));
+        }
+        UNPROTECT(1);
       } else {
-        len0 = LENGTH(item);
-		WRITE_INTEGER(os, len0);
-		WRITE_BYTES(os, CHAR(item), len0);
-	  }
-      break;
-
-    case LGLSXP:
-      len = XLENGTH(item);
-      WRITE_LENGTH(os, len);
-      WRITE_VEC(os, LOGICAL(item), len, sizeof(LOGICAL(item)[0]));
-      break;
-
-    case INTSXP:
-      len = XLENGTH(item);
-      WRITE_LENGTH(os, len);
-      WRITE_VEC(os, INTEGER(item), len, sizeof(INTEGER(item)[0]));
-      break;
-
-    case REALSXP:
-      len = XLENGTH(item);
-      WRITE_LENGTH(os, len);
-      WRITE_VEC(os, REAL(item), len, sizeof(REAL(item)[0]));
-      break;
-
-    case STRSXP:
-      len = XLENGTH(item);
-      WRITE_LENGTH(os, len);
-      for (R_xlen_t i = 0; i < len; i++) {
-		write_item(os, STRING_ELT(item, i));
-	  }
-      break;
-
-    case VECSXP:
-      len = XLENGTH(item);
-      WRITE_LENGTH(os, len);
-      for (R_xlen_t i = 0; i < len; i++) {
-		write_item(os, VECTOR_ELT(item, i));
+        WRITE_INTEGER(os, ENVSXP);
+        WRITE_INTEGER(os, R_EnvironmentIsLocked(item) ? 1 : 0);
+        write_item(os, ENCLOS(item));
+        write_item(os, FRAME(item));
+        write_item(os, HASHTAB(item));
+        write_item(os, ATTRIB(item));
       }
-      break;
+    }
+    break;
 
-    case BCODESXP:
-      write_base_r(os, item);
-      break;
+  case EXTPTRSXP:
+    WRITE_INTEGER(os, flags);
+    if (!write_hashed(os, item)) {
+      write_item(os, EXTPTR_PROT(item));
+      write_item(os, EXTPTR_TAG(item));
+    }
+    break;
 
-    case RAWSXP:
-      len = XLENGTH(item);
-	  WRITE_LENGTH(os, len);
-      WRITE_BYTES(os, RAW(item), len);
-      break;
+  case WEAKREFSXP:
+    WRITE_INTEGER(os, flags);
+    // this is just flags, but they have reference semantics
+    write_hashed(os, item);
+    break;
 
-    case S4SXP:
-      // Nothing to do, attributes come later
-      break;
+	case SPECIALSXP:
+	case BUILTINSXP:
+    // we can't do these because PRIMNAME() is internal
+    write_base_r(os, item);
+    break;
 
-    default:
-      REprintf("Ignoring uninmplemented type %i\n", TYPEOF(item));
-      break;
+  case NILSXP:
+    // no flags!
+    WRITE_INTEGER(os, NILVALUE_SXP);
+    break;
+
+  case CHARSXP:
+    WRITE_INTEGER(os, flags);
+    if (item == NA_STRING) {
+      WRITE_INTEGER(os, -1);
+    } else {
+      len0 = LENGTH(item);
+		  WRITE_INTEGER(os, len0);
+      WRITE_BYTES(os, CHAR(item), len0);
+	  }
+    break;
+
+  case LGLSXP:
+    WRITE_INTEGER(os, flags);
+    len = XLENGTH(item);
+    WRITE_LENGTH(os, len);
+    WRITE_VEC(os, LOGICAL(item), len, sizeof(LOGICAL(item)[0]));
+    break;
+
+  case INTSXP:
+    WRITE_INTEGER(os, flags);
+    len = XLENGTH(item);
+    WRITE_LENGTH(os, len);
+    WRITE_VEC(os, INTEGER(item), len, sizeof(INTEGER(item)[0]));
+    break;
+
+  case REALSXP:
+    WRITE_INTEGER(os, flags);
+    len = XLENGTH(item);
+    WRITE_LENGTH(os, len);
+    WRITE_VEC(os, REAL(item), len, sizeof(REAL(item)[0]));
+    break;
+
+  case CPLXSXP:
+    WRITE_INTEGER(os, flags);
+    len = XLENGTH(item);
+    WRITE_LENGTH(os, len);
+    WRITE_VEC(os, COMPLEX(item), len, sizeof(COMPLEX(item)[0]));
+    break;
+
+  case STRSXP:
+    WRITE_INTEGER(os, flags);
+    len = XLENGTH(item);
+    WRITE_LENGTH(os, len);
+    for (R_xlen_t i = 0; i < len; i++) {
+      write_item(os, STRING_ELT(item, i));
+	  }
+    break;
+
+  case VECSXP:
+	case EXPRSXP:
+    WRITE_INTEGER(os, flags);
+    len = XLENGTH(item);
+    WRITE_LENGTH(os, len);
+    for (R_xlen_t i = 0; i < len; i++) {
+      write_item(os, VECTOR_ELT(item, i));
+    }
+    break;
+
+  case BCODESXP:
+    // flags by base R
+    write_base_r(os, item);
+    break;
+
+  case RAWSXP:
+    WRITE_INTEGER(os, flags);
+    len = XLENGTH(item);
+    WRITE_LENGTH(os, len);
+    WRITE_BYTES(os, RAW(item), len);
+    break;
+
+  case S4SXP:
+    WRITE_INTEGER(os, flags);
+    // Nothing to do, attributes come later
+    break;
+
+  default:
+    REprintf("Ignoring uninmplemented type %i\n", TYPEOF(item));
+    break;
   }
   if (hasattr) write_item(os, ATTRIB(item));
 }
@@ -380,6 +412,11 @@ SEXP c_missing_arg(void) {
 
 SEXP c_unbound_value(void) {
   return R_UnboundValue;
+}
+
+SEXP c_bnd_cell_int(SEXP value) {
+  SEXP cell;
+  return cell;
 }
 
 static const R_CallMethodDef callMethods[]  = {
