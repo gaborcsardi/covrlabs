@@ -50,7 +50,7 @@ trace_calls_ <- function(
       as.call(x)
     } else if (!is.null(src_ref)) {
       as.call(Map(
-        trace_calls,
+        trace_calls_,
         x,
         src_ref,
         MoreArgs = list(
@@ -77,13 +77,13 @@ trace_calls_ <- function(
       key <- new_counter(src_ref, parent_functions)
       fun_body <- count_call(
         key,
-        trace_calls(fun_body, parent_functions, compile = compile)
+        trace_calls_(fun_body, parent_functions, compile = compile)
       )
     } else {
-      fun_body <- trace_calls(fun_body, parent_functions)
+      fun_body <- trace_calls_(fun_body, parent_functions)
     }
 
-    new_formals <- trace_calls(
+    new_formals <- trace_calls_(
       formals(x),
       parent_functions,
       compile = compile
