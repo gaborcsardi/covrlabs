@@ -2,12 +2,14 @@ base_serialize <- function(
     object,
     connection = NULL,
     ascii = FALSE,
-    xdr = FALSE) {
+    xdr = FALSE,
+    version = 2) {
   base::serialize(
     object,
     connection = connection,
     ascii = ascii,
-    xdr = xdr
+    xdr = xdr,
+    version = version
   )
 }
 

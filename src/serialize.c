@@ -44,6 +44,7 @@ struct out_stream {
   hmap_sexp smap;
   FILE *stream;
   struct R_outpstream_st rstream;
+  int header_size;
   int ignored;
 };
 
@@ -51,6 +52,7 @@ void out_stream_init(struct out_stream *os) {
   os->buf = NULL;
   os->len = 1024 * 1024;
   os->stream = NULL;
+  os->ignored = -1;
 }
 
 void out_stream_drop(struct out_stream *os) {
@@ -61,11 +63,12 @@ void out_stream_drop(struct out_stream *os) {
   os->stream = NULL;
 }
 
-#define WRITE_BYTES(s, addr, size)                              \
-  if (fwrite((addr), 1 ,(size), (s)->stream) == EOF) {          \
-    out_stream_drop(s);                                         \
-    R_THROW_POSIX_ERROR("Cannot write bytes to memory buffer"); \
-  }
+#define WRITE_BYTES(s, addr, size)                                \
+  do {                                                            \
+    if (fwrite((addr), 1 ,(size), (s)->stream) == EOF) {          \
+      out_stream_drop(s);                                         \
+      R_THROW_POSIX_ERROR("Cannot write bytes to memory buffer"); \
+  } } while (0)
 
 #define WRITE_INTEGER(s, i)              \
   do {                                   \
@@ -95,6 +98,8 @@ void out_stream_drop(struct out_stream *os) {
       out_stream_drop(s);                                          \
       R_THROW_POSIX_ERROR("Cannot write vector to memory buffer"); \
     }
+
+void write_bc(struct out_stream *os, SEXP item);
 
 int get_flags(SEXP item) {
   int type = TYPEOF(item);
@@ -152,13 +157,13 @@ void out_char_mem(R_outpstream_t stream, int c) {
 
 void out_bytes_mem(R_outpstream_t stream, void *buf, int length) {
   struct out_stream *os = (struct out_stream*) stream->data;
-  if (os->ignored < 14) {
-    if (os->ignored + length <= 14) {
+  if (os->ignored < os->header_size) {
+    if (os->ignored + length <= os->header_size) {
       os->ignored += length;
     } else {
-      int omit = 14 - os->ignored;
+      int omit = os->header_size - os->ignored;
       const char *cbuf = (const char*) buf;
-      os->ignored = 14;
+      os->ignored = os->header_size;
       WRITE_BYTES(os, cbuf + omit, length - omit);
     }
   } else {
@@ -167,6 +172,18 @@ void out_bytes_mem(R_outpstream_t stream, void *buf, int length) {
 }
 
 void write_base_r(struct out_stream *os, SEXP item) {
+  if (os->ignored == -1) {
+    R_InitOutPStream(
+      &os->rstream,
+      (R_pstream_data_t) os,
+      R_pstream_binary_format,
+      /* version = */ 2,
+      out_char_mem,
+      out_bytes_mem,
+      /* phook = */ NULL,
+      /* pdata = */ R_NilValue
+    );
+  }
   struct R_outpstream_st out = os->rstream;
   os->ignored = 0;
   R_Serialize(item, &out);
@@ -212,8 +229,7 @@ tailcall:
       WRITE_INTEGER(os, UNBOUNDVALUE_SXP);
     } else if (!write_hashed(os, item)) {
       WRITE_INTEGER(os, SYMSXP);
-      item = PRINTNAME(item);
-      goto tailcall;
+      write_item(os, PRINTNAME(item));
     }
     break;
 
@@ -342,8 +358,8 @@ tailcall:
     break;
 
   case BCODESXP:
-    // flags by base R
-    write_base_r(os, item);
+    WRITE_INTEGER(os, flags);
+    write_bc(os, item);
     break;
 
   case RAWSXP:
@@ -366,7 +382,7 @@ tailcall:
 }
 
 SEXP c_serialize(SEXP x, SEXP native_encoding) {
-  const char*cnative_encoding = CHAR(STRING_ELT(native_encoding, 0));
+  // const char* cnative_encoding = CHAR(STRING_ELT(native_encoding, 0));
   struct out_stream os;
   out_stream_init(&os);
   os.stream = open_memstream(&(os.buf), &(os.len));
@@ -374,26 +390,15 @@ SEXP c_serialize(SEXP x, SEXP native_encoding) {
     R_THROW_POSIX_ERROR("Cannot open memory buffer for serialization");
   }
 
-  R_InitOutPStream(
-    &os.rstream,
-    (R_pstream_data_t) &os,
-    R_pstream_binary_format,
-    // we use version 2, because that is (almost) the same as version 3,
-    // and its header has a fixed size. For ALTREP, we'll need version 3.
-    /* version = */ 2,
-    out_char_mem,
-    out_bytes_mem,
-    /* phook = */ NULL,
-    /* pdata = */ R_NilValue
-  );
-
   WRITE_STRING(&os, "B\n");
-  WRITE_INTEGER(&os, 3);
+  WRITE_INTEGER(&os, 2);
   WRITE_INTEGER(&os, R_VERSION);
-  WRITE_INTEGER(&os, R_Version(3,5,0));
-  WRITE_INTEGER(&os, strlen(cnative_encoding));
-  WRITE_STRING(&os, cnative_encoding);
+  WRITE_INTEGER(&os, R_Version(2,3,0));
+  // WRITE_INTEGER(&os, strlen(cnative_encoding));
+  // WRITE_STRING(&os, cnative_encoding);
 
+  fflush(os.stream);
+  os.header_size = os.len;
   os.smap = hmap_sexp_init();
 
   write_item(&os, x);
@@ -414,11 +419,6 @@ SEXP c_unbound_value(void) {
   return R_UnboundValue;
 }
 
-SEXP c_bnd_cell_int(SEXP value) {
-  SEXP cell;
-  return cell;
-}
-
 static const R_CallMethodDef callMethods[]  = {
   { "c_serialize",     (DL_FUNC) &c_serialize,     2 },
   { "c_missing_arg",   (DL_FUNC) &c_missing_arg,   0 },
@@ -430,4 +430,166 @@ void R_init_covrlabs(DllInfo *dll) {
   R_registerRoutines(dll, NULL, callMethods, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
   R_forceSymbols(dll, TRUE);
+}
+
+#define HASHSIZE 1099
+#define PTRHASH(obj) (((R_size_t) (obj)) >> 2)
+#define cons(a,b) Rf_cons(a,b)
+typedef size_t R_size_t;
+#define ATTRLANGSXP 240
+#define ATTRLISTSXP 239
+SEXP R_bcEncode(SEXP bytes);
+SEXP R_bcDecode(SEXP code);
+#define BCODE_CODE(x)	CAR(x)
+
+SEXP make_circle_hash_table(void) {
+  return CONS(R_NilValue, Rf_allocVector(VECSXP, HASHSIZE));
+}
+
+Rboolean add_circle_hash(SEXP item, SEXP ct) {
+  SEXP table, bucket, list;
+
+  table = CDR(ct);
+  R_size_t pos = PTRHASH(item) % LENGTH(table);
+  bucket = VECTOR_ELT(table, pos);
+  for (list = bucket; list != R_NilValue; list = CDR(list)) {
+    if (TAG(list) == item) {
+      if (CAR(list) == R_NilValue) {
+        /* this is the second time; enter in list and mark */
+        SETCAR(list, R_UnboundValue); /* anything different will do */
+        SETCAR(ct, CONS(item, CAR(ct)));
+      }
+      return TRUE;
+    }
+  }
+
+    /* If we get here then this is a new item; enter in the table */
+    bucket = CONS(R_NilValue, bucket);
+    SET_TAG(bucket, item);
+    SET_VECTOR_ELT(table, pos, bucket);
+    return FALSE;
+}
+
+void scan_for_circles_(SEXP item, SEXP ct) {
+  switch (TYPEOF(item)) {
+  case LANGSXP:
+  case LISTSXP:
+    if (! add_circle_hash(item, ct)) {
+	    scan_for_circles_(CAR(item), ct);
+	    scan_for_circles_(CDR(item), ct);
+	  }
+    break;
+
+  case BCODESXP: {
+      int i, n;
+      SEXP consts = BCODE_CONSTS(item);
+      n = LENGTH(consts);
+      for (i = 0; i < n; i++)
+	    scan_for_circles_(VECTOR_ELT(consts, i), ct);
+    }
+	  break;
+
+  default:
+    break;
+  }
+}
+
+SEXP scan_for_circles(SEXP item) {
+  SEXP ct;
+  PROTECT(ct = make_circle_hash_table());
+  scan_for_circles_(item, ct);
+  UNPROTECT(1);
+  return CAR(ct);
+}
+
+SEXP findrep(SEXP x, SEXP reps) {
+  for (; reps != R_NilValue; reps = CDR(reps)) {
+    if (x == CAR(reps)) {
+	    return reps;
+    }
+  }
+  return R_NilValue;
+}
+
+void write_bc_lang(struct out_stream *os, SEXP item, SEXP reps) {
+  int type = TYPEOF(item);
+  if (type == LANGSXP || type == LISTSXP) {
+    SEXP r = findrep(item, reps);
+    int output = TRUE;
+    if (r != R_NilValue) {
+	    /* we have a cell referenced more than once */
+	    if (TAG(r) == R_NilValue) {
+		    /* this is the first reference, so update and register
+		       the counter */
+        int i = INTEGER(CAR(reps))[0]++;
+        SET_TAG(r, Rf_allocVector(INTSXP, 1));
+        INTEGER(TAG(r))[0] = i;
+        WRITE_INTEGER(os, BCREPDEF);
+        WRITE_INTEGER(os, i);
+	    } else {
+        /* we've seen it before, so just put out the index */
+        WRITE_INTEGER(os, BCREPREF);
+        WRITE_INTEGER(os, INTEGER(TAG(r))[0]);
+        output = FALSE;
+	    }
+	  }
+
+    if (output) {
+      SEXP attr = ATTRIB(item);
+      if (attr != R_NilValue) {
+        switch(type) {
+        case LANGSXP: type = ATTRLANGSXP; break;
+        case LISTSXP: type = ATTRLISTSXP; break;
+        }
+	    }
+      WRITE_INTEGER(os, type);
+	    if (attr != R_NilValue) {
+        write_item(os, attr);
+      }
+      write_item(os, TAG(item));
+	    write_bc_lang(os, CAR(item), reps);
+	    write_bc_lang(os, CDR(item), reps);
+    }
+  } else {
+    WRITE_INTEGER(os, 0); /* pad */
+    write_item(os, item);
+  }
+}
+
+void write_bc_(struct out_stream *os, SEXP item, SEXP reps) {
+  int i, n;
+  SEXP code, consts;
+  PROTECT(code = R_bcDecode(BCODE_CODE(item)));
+  write_item(os, code);
+  consts = BCODE_CONSTS(item);
+  n = LENGTH(consts);
+  WRITE_INTEGER(os, n);
+  for (i = 0; i < n; i++) {
+	  SEXP c = VECTOR_ELT(consts, i);
+    int type = TYPEOF(c);
+    switch (type) {
+    case BCODESXP:
+      WRITE_INTEGER(os, type);
+      write_bc_(os, c, reps);
+      break;
+    case LANGSXP:
+    case LISTSXP:
+      write_bc_lang(os, c, reps);
+      break;
+    default:
+      WRITE_INTEGER(os, type);
+      write_item(os, c);
+    }
+  }
+  UNPROTECT(1);
+}
+
+void write_bc(struct out_stream *os, SEXP item) {
+  SEXP reps = scan_for_circles(item);
+  PROTECT(reps = CONS(R_NilValue, reps));
+  WRITE_INTEGER(os, Rf_length(reps));
+  SETCAR(reps, Rf_allocVector(INTSXP, 1));
+  INTEGER(CAR(reps))[0] = 0;
+  write_bc_(os, item, reps);
+  UNPROTECT(1);
 }

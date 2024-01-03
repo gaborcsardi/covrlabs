@@ -11,7 +11,7 @@ test_that("R_MissingArg", {
 })
 
 test_that("ALTREP", {
-  # TODO
+  expect_same_serialization(1:10)
 })
 
 test_that("SYMSXP", {
@@ -45,6 +45,9 @@ test_that("ENVSXP", {
 
   attr(e2, "a") <- list(1L)
   expect_same_serialization(e2)
+
+  # hashing
+  expect_same_serialization(list(emptyenv(), emptyenv()))
 })
 
 test_that("LISTSXP", {
@@ -166,8 +169,6 @@ test_that("EXPRSXP", {
 
 test_that("BCODESXP", {
   f <- function() NULL
-  f <- remove_source(f)
-  environment(f) <- globalenv() # why is this needed?
   f <- compiler::cmpfun(f)
 
   expect_same_serialization(f)
@@ -185,7 +186,6 @@ test_that("immediate bindings", {
 })
 
 test_that("OBJSXP", {
-  skip("broken")
-  s4 <- remove_source(methods::getClass("numeric"))
+  s4 <- methods::getClass("double")
   expect_same_serialization(s4)
 })
