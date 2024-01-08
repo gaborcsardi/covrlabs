@@ -189,6 +189,188 @@ void write_base_r(struct out_stream *os, SEXP item) {
   R_Serialize(item, &out);
 }
 
+// ------------------------------------------------------------------------
+// Immediate Binding Values
+// ------------------------------------------------------------------------
+
+// See https://github.com/wch/r-source/blob/trunk/doc/notes/immbnd.md
+
+#if ( SIZEOF_SIZE_T < SIZEOF_DOUBLE )
+# define BOXED_BINDING_CELLS 1
+#else
+# define BOXED_BINDING_CELLS 0
+#endif
+
+#if BOXED_BINDING_CELLS
+/* Use allocated scalars to hold immediate binding values. A little
+   less efficient but does not change memory layout or use. These
+   allocated scalars must not escape their bindings. */
+#define BNDCELL_DVAL(v) SCALAR_DVAL(CAR0(v))
+#define BNDCELL_IVAL(v) SCALAR_IVAL(CAR0(v))
+#define BNDCELL_LVAL(v) SCALAR_LVAL(CAR0(v))
+
+#define SET_BNDCELL_DVAL(cell, dval) SET_SCALAR_DVAL(CAR0(cell), dval)
+#define SET_BNDCELL_IVAL(cell, ival) SET_SCALAR_IVAL(CAR0(cell), ival)
+#define SET_BNDCELL_LVAL(cell, lval) SET_SCALAR_LVAL(CAR0(cell), lval)
+
+#else
+/* Use a union in the CAR field to represent an SEXP or an immediate
+   value.  More efficient, but changes the menory layout on 32 bit
+   platforms since the size of the union is larger than the size of a
+   pointer. The layout should not change on 64 bit platforms. */
+typedef union {
+    SEXP sxpval;
+    double dval;
+    int ival;
+} R_bndval_t;
+
+#define BNDCELL_DVAL(v) ((R_bndval_t *) &CAR0(v))->dval
+#define BNDCELL_IVAL(v) ((R_bndval_t *) &CAR0(v))->ival
+#define BNDCELL_LVAL(v) ((R_bndval_t *) &CAR0(v))->ival
+
+#define SET_BNDCELL_DVAL(cell, dval) (BNDCELL_DVAL(cell) = (dval))
+#define SET_BNDCELL_IVAL(cell, ival) (BNDCELL_IVAL(cell) = (ival))
+#define SET_BNDCELL_LVAL(cell, lval) (BNDCELL_LVAL(cell) = (lval))
+
+#endif
+
+#define BNDCELL_TAG(e)	((e)->sxpinfo.extra)
+#define SET_BNDCELL_TAG(e, v) ((e)->sxpinfo.extra = (v))
+
+#define NAMED_BITS 16
+
+struct sxpinfo_struct {
+    SEXPTYPE type      :  TYPE_BITS;
+                            /* ==> (FUNSXP == 99) %% 2^5 == 3 == CLOSXP
+			     * -> warning: `type' is narrower than values
+			     *              of its type
+			     * when SEXPTYPE was an enum */
+    unsigned int scalar:  1;
+    unsigned int obj   :  1;
+    unsigned int alt   :  1;
+    unsigned int gp    : 16;
+    unsigned int mark  :  1;
+    unsigned int debug :  1;
+    unsigned int trace :  1;  /* functions and memory tracing */
+    unsigned int spare :  1;  /* used on closures and when REFCNT is defined */
+    unsigned int gcgen :  1;  /* old generation number */
+    unsigned int gccls :  3;  /* node class */
+    unsigned int named : NAMED_BITS;
+    unsigned int extra : 32 - NAMED_BITS; /* used for immediate bindings */
+}; /*		    Tot: 64 */
+
+struct primsxp_struct {
+    int offset;
+};
+
+struct symsxp_struct {
+    struct SEXPREC *pname;
+    struct SEXPREC *value;
+    struct SEXPREC *internal;
+};
+
+struct listsxp_struct {
+    struct SEXPREC *carval;
+    struct SEXPREC *cdrval;
+    struct SEXPREC *tagval;
+};
+
+struct envsxp_struct {
+    struct SEXPREC *frame;
+    struct SEXPREC *enclos;
+    struct SEXPREC *hashtab;
+};
+
+struct closxp_struct {
+    struct SEXPREC *formals;
+    struct SEXPREC *body;
+    struct SEXPREC *env;
+};
+
+struct promsxp_struct {
+    struct SEXPREC *value;
+    struct SEXPREC *expr;
+    struct SEXPREC *env;
+};
+
+#define MISSING_MASK	15 /* reserve 4 bits--only 2 uses now */
+#define SET_MISSING(x,v) do { \
+  SEXP __x__ = (x); \
+  int __v__ = (v); \
+  int __other_flags__ = __x__->sxpinfo.gp & ~MISSING_MASK; \
+  __x__->sxpinfo.gp = __other_flags__ | __v__; \
+} while (0)
+
+#define SEXPREC_HEADER \
+    struct sxpinfo_struct sxpinfo; \
+    struct SEXPREC *attrib; \
+    struct SEXPREC *gengc_next_node, *gengc_prev_node
+
+typedef struct SEXPREC {
+    SEXPREC_HEADER;
+    union {
+	struct primsxp_struct primsxp;
+	struct symsxp_struct symsxp;
+	struct listsxp_struct listsxp;
+	struct envsxp_struct envsxp;
+	struct closxp_struct closxp;
+	struct promsxp_struct promsxp;
+    } u;
+} SEXPREC;
+
+#define CAR0(e)		((e)->u.listsxp.carval)
+void (SET_BNDCELL_IVAL)(SEXP cell, int v);
+
+void (INIT_BNDCELL)(SEXP cell, int type);
+
+SEXP c_bnd_cell_int(SEXP val) {
+  SEXP cell = PROTECT(Rf_allocSExp(LISTSXP));
+  // Leaking memory here!
+  R_PreserveObject(cell);
+  INIT_BNDCELL(cell, INTSXP);
+  SET_BNDCELL_IVAL(cell, INTEGER(val)[0]);
+  UNPROTECT(1);
+  return cell;
+}
+
+SEXP c_bnd_cell_lgl(SEXP val) {
+  SEXP cell = PROTECT(Rf_allocSExp(LISTSXP));
+  // Leaking memory here!
+  R_PreserveObject(cell);
+  INIT_BNDCELL(cell, LGLSXP);
+  SET_BNDCELL_LVAL(cell, LOGICAL(val)[0]);
+  UNPROTECT(1);
+  return cell;
+}
+
+SEXP c_bnd_cell_real(SEXP val) {
+  SEXP cell = PROTECT(Rf_allocSExp(LISTSXP));
+  // Leaking memory here!
+  R_PreserveObject(cell);
+  INIT_BNDCELL(cell, REALSXP);
+  SET_BNDCELL_DVAL(cell, REAL(val)[0]);
+  UNPROTECT(1);
+  return cell;
+}
+
+void write_item(struct out_stream *os, SEXP item);
+
+void write_binding_value(struct out_stream *os, SEXP item) {
+  if (BNDCELL_TAG(item) == INTSXP) {
+    SEXP item2 = PROTECT(Rf_ScalarInteger(BNDCELL_IVAL(item)));
+    write_item(os, item2);
+    UNPROTECT(1);
+  } else if (BNDCELL_TAG(item) == REALSXP) {
+    SEXP item2 = PROTECT(Rf_ScalarReal(BNDCELL_DVAL(item)));
+    write_item(os, item2);
+    UNPROTECT(1);
+  } else if (BNDCELL_TAG(item) == LGLSXP) {
+    SEXP item2 = PROTECT(Rf_ScalarLogical(BNDCELL_LVAL(item)));
+    write_item(os, item2);
+    UNPROTECT(1);
+  }
+}
+
 void write_item(struct out_stream *os, SEXP item) {
   R_xlen_t len;
   int len0;
@@ -207,8 +389,11 @@ tailcall:
     WRITE_INTEGER(os, flags);
 	  if (hasattr) write_item(os, ATTRIB(item));
 	  if (TAG(item) != R_NilValue) write_item(os, TAG(item));
-	  // if (BNDCELL_TAG(item)) R_expand_binding_value(item);
-	  write_item(os, CAR(item));
+	  if (BNDCELL_TAG(item)) {
+      write_binding_value(os, item);
+    } else {
+      write_item(os, CAR(item));
+    }
     // recall with CDR
 	  item = CDR(item);
 	  goto tailcall;
@@ -375,7 +560,7 @@ tailcall:
     break;
 
   default:
-    REprintf("Ignoring uninmplemented type %i\n", TYPEOF(item));
+    Rf_error("Uninmplemented type %i\n", TYPEOF(item));
     break;
   }
   if (hasattr) write_item(os, ATTRIB(item));
@@ -411,6 +596,8 @@ SEXP c_serialize(SEXP x, SEXP native_encoding) {
   return out;
 }
 
+// ------------------------------------------------------------------------
+
 SEXP c_missing_arg(void) {
   return R_MissingArg;
 }
@@ -419,10 +606,93 @@ SEXP c_unbound_value(void) {
   return R_UnboundValue;
 }
 
+int is_vector(SEXP x) {
+  switch (TYPEOF(x)) {
+  case CHARSXP:
+  case LGLSXP:
+  case INTSXP:
+  case REALSXP:
+  case CPLXSXP:
+  case STRSXP:
+  case VECSXP:
+  case EXPRSXP:
+  case RAWSXP:
+  case WEAKREFSXP:
+    return 1;
+    break;
+  default:
+    return 0;
+    break;
+  }
+}
+
+SEXP c_sexprec(SEXP x) {
+  int v = is_vector(x);
+  int ss = sizeof(*x);
+  int s = v ? ss - 3 * sizeof(SEXP) + sizeof(R_xlen_t) * 2 : ss;
+  const char *nms[] = {
+    "vector", "bytes", "length", "truelength", "xlent_size",
+    "bndcell_type", "offset", "" };
+  SEXP res = PROTECT(Rf_mkNamed(VECSXP, nms));
+  SET_VECTOR_ELT(res, 0, Rf_ScalarLogical(v));
+  SET_VECTOR_ELT(res, 1, Rf_allocVector(RAWSXP, s));
+  memcpy(RAW(VECTOR_ELT(res, 1)), x, s);
+  if (v) {
+    SET_VECTOR_ELT(res, 2, Rf_ScalarReal(XLENGTH(x)));
+    SET_VECTOR_ELT(res, 3, Rf_ScalarReal(TRUELENGTH(x)));
+  } else {
+    SET_VECTOR_ELT(res, 2, Rf_ScalarReal(NA_REAL));
+    SET_VECTOR_ELT(res, 3, Rf_ScalarReal(NA_REAL));
+  }
+  SET_VECTOR_ELT(res, 4, Rf_ScalarInteger(sizeof(R_xlen_t)));
+  if (BNDCELL_TAG(x)) {
+    SET_VECTOR_ELT(res, 5, Rf_ScalarInteger(BNDCELL_TAG(x)));
+  } else {
+    SET_VECTOR_ELT(res, 5, Rf_ScalarInteger(NA_INTEGER));
+  }
+  if (TYPEOF(x) == BUILTINSXP || TYPEOF(x) == SPECIALSXP) {
+    SET_VECTOR_ELT(res, 6, Rf_ScalarInteger(x->u.primsxp.offset));
+  } else {
+    SET_VECTOR_ELT(res, 6, Rf_ScalarInteger(NA_INTEGER));
+  }
+  UNPROTECT(1);
+  return res;
+}
+
+SEXP c_charsxp(SEXP x) {
+  return Rf_duplicate(STRING_ELT(x, 0));
+}
+
+SEXP c_anysxp(void) {
+  SEXP res = Rf_allocSExp(ANYSXP);
+  return res;
+}
+
+SEXP c_xptrsxp(SEXP tag, SEXP prot) {
+  SEXP ptr = R_MakeExternalPtr(NULL, tag, prot);
+  return ptr;
+}
+
+SEXP c_weakrefsxp(SEXP key, SEXP val, SEXP fin, SEXP onexit) {
+  int conexit = LOGICAL(onexit)[0];
+  SEXP wref = R_MakeWeakRef(key, val, fin, conexit);
+  return wref;
+}
+
+// ------------------------------------------------------------------------
+
 static const R_CallMethodDef callMethods[]  = {
   { "c_serialize",     (DL_FUNC) &c_serialize,     2 },
   { "c_missing_arg",   (DL_FUNC) &c_missing_arg,   0 },
   { "c_unbound_value", (DL_FUNC) &c_unbound_value, 0 },
+  { "c_bnd_cell_int",  (DL_FUNC) &c_bnd_cell_int,  1 },
+  { "c_bnd_cell_lgl",  (DL_FUNC) &c_bnd_cell_lgl,  1 },
+  { "c_bnd_cell_real", (DL_FUNC) &c_bnd_cell_real, 1 },
+  { "c_sexprec",       (DL_FUNC) &c_sexprec,       1 },
+  { "c_charsxp",       (DL_FUNC) &c_charsxp,       1 },
+  { "c_anysxp",        (DL_FUNC) &c_anysxp,        0 },
+  { "c_xptrsxp",       (DL_FUNC) &c_xptrsxp,       2 },
+  { "c_weakrefsxp",    (DL_FUNC) &c_weakrefsxp,    4 },
   { NULL, NULL, 0 }
 };
 
@@ -431,6 +701,10 @@ void R_init_covrlabs(DllInfo *dll) {
   R_useDynamicSymbols(dll, FALSE);
   R_forceSymbols(dll, TRUE);
 }
+
+// ------------------------------------------------------------------------
+// BYTECODE
+// ------------------------------------------------------------------------
 
 #define HASHSIZE 1099
 #define PTRHASH(obj) (((R_size_t) (obj)) >> 2)

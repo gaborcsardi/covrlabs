@@ -96,11 +96,11 @@ test_that("CLOSXP", {
 })
 
 test_that("EXTPTRSXP", {
-
+  expect_same_serialization((xptrsxp()))
 })
 
 test_that("WEAKREFSXP", {
-
+  expect_same_serialization((weakrefsxp()))
 })
 
 test_that("SPECIALSXP", {
@@ -182,7 +182,9 @@ test_that("RAWSXP", {
 })
 
 test_that("immediate bindings", {
-
+  expect_same_serialization(bnd_cell_int(41L))
+  expect_same_serialization(bnd_cell_real(41))
+  expect_same_serialization(bnd_cell_lgl(TRUE))
 })
 
 test_that("OBJSXP", {
