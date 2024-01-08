@@ -116,7 +116,7 @@ hex <- function(bytes) {
     bytes <- rev(bytes)
   }
   while (length(bytes) > 1 && bytes[1] == 0L) {
-    bytes <- tail(bytes, -1)
+    bytes <- utils::tail(bytes, -1)
   }
   paste0(c("0x", format(bytes)), collapse = "")
 }
@@ -147,9 +147,9 @@ format.sexprec_summary <- function(x, ...) {
   } else if (typename %in% c("BUILTIN", "SPECIAL")) {
     df$OFFSET <- paste0("0x", format(as.hexmode(x$offset), width = 4))
   } else {
-    ptr1 <- hex(tail(head(x$bytes, -2 * ps), ps))
-    ptr2 <- hex(tail(head(x$bytes, -ps), ps))
-    ptr3 <- hex(tail(x$bytes, ps))
+    ptr1 <- hex(utils::tail(utils::head(x$bytes, -2 * ps), ps))
+    ptr2 <- hex(utils::tail(utils::head(x$bytes, -ps), ps))
+    ptr3 <- hex(utils::tail(x$bytes, ps))
     if (typename == "SYM") {
       df$PNAME <- ptr1
       df$VALUE <- ptr2
