@@ -91,7 +91,7 @@ sexp_types <- read.table(
     15     CPLXSXP    complex     TRUE   'complex vectors'
     16     STRSXP     character   TRUE   'character vectors'
     17     DOTSXP     ...         FALSE  'dot-dot-dot object'
-    18     ANYSXP     any         FALSE  'make “any” args work'
+    18     ANYSXP     any         FALSE  'make \"any\" args work'
     19     VECSXP     list        TRUE   'list (generic vector)'
     20     EXPRSXP    expression  TRUE   'expression vector'
     21     BCODESXP   bytecode    FALSE  'byte code'
