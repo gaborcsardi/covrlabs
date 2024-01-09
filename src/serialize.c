@@ -393,8 +393,6 @@ void write_binding_value(struct out_stream *os, SEXP item) {
   }
 }
 
-#define LEVELS(x)	((x)->sxpinfo.gp)
-#define SETLEVELS(x,v)	(((x)->sxpinfo.gp)=((unsigned short)v))
 #define CALLBACK_MARK 32
 
 void write_item(struct out_stream *os, SEXP item) {
