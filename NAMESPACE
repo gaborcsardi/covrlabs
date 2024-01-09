@@ -2,7 +2,6 @@
 
 S3method(format,sexprec_summary)
 S3method(print,sexprec_summary)
-export(find_functions)
 export(serialize)
 export(trace_calls)
 import(rex)
