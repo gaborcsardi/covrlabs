@@ -1,0 +1,182 @@
+# Notes about serializing R objects
+
+- [Introduction](#introduction)
+- [Choices and challenges](#choices-and-challenges)
+  - [Options and speed](#options-and-speed)
+  - [Special objects](#special-objects)
+  - [Hashing](#hashing)
+  - [ALTREP](#altrep)
+  - [Byte code](#byte-code)
+  - [Immediate binding values](#immediate-binding-values)
+  - [Creating special objects](#creating-special-objects)
+  - [Inspecting the structure of a
+    SEXP](#inspecting-the-structure-of-a-sexp)
+  - [Hurdles for implementing serialization in a
+    package](#hurdles-for-implementing-serialization-in-a-package)
+- [Benefits](#benefits)
+  - [New serialization format](#new-serialization-format)
+  - [Custom callbacks](#custom-callbacks)
+
+# Introduction
+
+This a series of notes covering what I learned from reimplementing (part
+of) the `base::serialize()` function.
+
+# Choices and challenges
+
+## Options and speed
+
+To make serialization fast, the best options are `xdr = FALSE` and
+`ascii = FALSE`. `xdr = TRUE` converts numbers to big endian, one by
+one, so it it slow. `ascii = TRUE` needs to format numbers as strings,
+slow as well. With `xdr = FALSE` and `ascii = FALSE` we can write out
+long numeric vectors with `fwrite()` (or possibly `write()` at some
+point).
+
+## Special objects
+
+Some objects are treted specially:
+
+- `R_MissingArg`,
+- `R_UnboundValue`,
+- `R_EmptyEnv`,
+- `R_BaseEnv`,
+- `R_GlobalEnv`,
+- `R_BaseNamespace`.
+
+These are written as special SXPs and we follow base R.
+
+## Hashing
+
+Some SXP types are hashed: `SYMSXP`, `ENVSXP`, `EXTPTRSXP`, `WEAKREFSXP`
+(the special objects are never hashed, though). This is to ensure their
+reference semantics. (Although `SYMSXP`s should be fine without hashing
+I think.)
+
+We also use a hash map to do the same, from the STC project:
+https://github.com/stclib/STC/blob/master/include/stc/hmap.h.
+
+## ALTREP
+
+Hashing prevents us from calling back to base R to serialize objects
+that we don’t want to (or can’t) handle. E.g. we could do that for
+ALTREP objects, which cannot be serialized without private base R code.
+The issue is that their serialized format might include object types
+that we need to hash, but we don’t have access to the base R hash table,
+so we cannot know the code in the hash table that should be used to
+represent these objects. This means that we cannot use the version 3
+format, but we need to instantiate all ALTREP objects and use version 2.
+(We could still use version 3, but instantiate all ALTREP objects, the
+benefit of this would be to store the native encoding, which version 3
+has, but version 2 does not.)
+
+## Byte code
+
+The code to serialize bytecode objects is from base R. I modified it to
+use our `write_item()` function, and thus our hash table.
+
+## Immediate binding values
+
+In recent versions of R, a `struct SEXPPREC` may contain an immediate
+integer, logical or double scalar, instead of pointing to an allocated
+vector.
+
+These cannot be serialized as is, and they need to be converted to
+proper vector objects. However, base R does not give us any tools to do
+this, the C function used by `base::serialize()` is private and we
+cannot call it. So we have a copy of some of the binding value code to
+handle this.
+
+More about immediate binding values:
+https://github.com/wch/r-source/blob/trunk/doc/notes/immbnd.md
+
+## Creating special objects
+
+It is not straightforward to create some SEXP types for testing. This
+package has a bunch of functions to help with this:
+
+- `missing_arg()`,
+- `unbound_value()`,
+- `bnd_cell_int()`, `bnd_cell_lgl()`, `bnd_cell_real()`,
+- `charsxp()`,
+- `anysxp()`,
+- `xptrsxp()`,
+- `weakrefsxp()`.
+
+## Inspecting the structure of a SEXP
+
+The `sexprec()` function is handy to inspect all bits of a `SEXP`.
+
+A vector:
+
+``` r
+sexprec(runif(5))
+```
+
+    TYPE       SOA GP   MDTSG GCC NAMED  EXTRA  LEN        TRUELEN   
+    14 REAL    000 0x00 00000 0x4 0x0001 0x0000 0x00000005 0x00000000
+
+ALTREP object:
+
+``` r
+sexprec(1:10)
+```
+
+    TYPE       SOA GP   MDTSG GCC NAMED  EXTRA  LEN        TRUELEN   
+    13 INT     001 0x00 00000 0x0 0xffff 0x0000 0x0000000a 0x00000000
+
+Closure:
+
+``` r
+sexprec(ls)
+```
+
+    TYPE      SOA GP   MDTSG GCC NAMED  EXTRA  FORMALS      BODY         ENV         
+    3 CLO     000 0x00 10001 0x0 0x0002 0x0000 0x011ed989c0 0x011ed98720 0x012f044ce0
+
+`CHARSXP`:
+
+``` r
+sexprec(charsxp("foo"))
+```
+
+    TYPE      SOA GP   MDTSG GCC NAMED  EXTRA  LEN        TRUELEN   
+    9 CHAR    000 0x61 10001 0x1 0x0145 0x0000 0x00000003 0x00006d5f
+
+## Hurdles for implementing serialization in a package
+
+A summary of some of the points above.
+
+- We cannot properly serialize ALTREP objects that have a serialize
+  method.
+- We cannot serialize byte code objects without copying base R code.
+- We cannot serialize immetiate binding values without copying base R
+  code.
+- We cannot call back to base R for objects that we don’t want to
+  handle, because base R has a separate hash table for reference
+  objects. (Not an issue for a potential new format.)
+
+# Benefits
+
+There are two benefits of implementing our own serialization: we could
+create a better file format, that can be used faster, and/or that is
+smaller; and we could add our custom transformer callbacks that are
+called at serialization time.
+
+## New serialization format
+
+A new serialization format could implement a faster format (e.g. using
+some of the tricks from the qs package). It could also improve the
+current format by using hashing to avoid writing out identical vectors
+or strings multiple times. This would also result faster
+unserialization, if we use reference counting when creating the R
+objects.
+
+## Custom callbacks
+
+We could add custom transformer functions to our serializer, to
+accomplish various tasks:
+
+- delete source references,
+- byte compile functions,
+- instrument functions for code coverage runs.
