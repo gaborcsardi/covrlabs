@@ -191,3 +191,15 @@ test_that("OBJSXP", {
   s4 <- methods::getClass("double")
   expect_same_serialization(s4)
 })
+
+test_that("closxp_callback", {
+  f <- function() {
+    1
+    2
+    3
+  }
+  # otherwise the environment, including f, f2, etc. is also saved
+  environment(f) <- globalenv()
+  f2 <- unserialize(serialize(f, closxp_callback = trace_calls))
+  expect_equal(f2, trace_calls(f))
+})

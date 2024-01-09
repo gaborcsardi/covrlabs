@@ -46,6 +46,8 @@ struct out_stream {
   struct R_outpstream_st rstream;
   int header_size;
   int ignored;
+  SEXP closxp_callback;
+  SEXP calling_env;
 };
 
 void out_stream_init(struct out_stream *os) {
@@ -53,6 +55,7 @@ void out_stream_init(struct out_stream *os) {
   os->len = 1024 * 1024;
   os->stream = NULL;
   os->ignored = -1;
+  os->closxp_callback = R_NilValue;
 }
 
 void out_stream_drop(struct out_stream *os) {
@@ -390,6 +393,10 @@ void write_binding_value(struct out_stream *os, SEXP item) {
   }
 }
 
+#define LEVELS(x)	((x)->sxpinfo.gp)
+#define SETLEVELS(x,v)	(((x)->sxpinfo.gp)=((unsigned short)v))
+#define CALLBACK_MARK 32
+
 void write_item(struct out_stream *os, SEXP item) {
   R_xlen_t len;
   int len0;
@@ -418,12 +425,25 @@ tailcall:
 	  goto tailcall;
 
   case CLOSXP:
+    if (!Rf_isNull(os->closxp_callback) && LEVELS(item) != CALLBACK_MARK) {
+      int lvls = LEVELS(item);
+      SEXP call = PROTECT(Rf_lang2(os->closxp_callback, item));
+      SEXP item = PROTECT(Rf_eval(call, os->calling_env));
+      // mark, so there is no infinite recursion
+      SETLEVELS(item, CALLBACK_MARK);
+      write_item(os, item);
+      SETLEVELS(item, lvls);
+      UNPROTECT(2);
+      // return to avoid writing out attributes
+      return;
+    } else {
     WRITE_INTEGER(os, flags);
-    if (hasattr) write_item(os, ATTRIB(item));
-    write_item(os, CLOENV(item));
-    write_item(os, FORMALS(item));
-    item = BODY(item);
-	  goto tailcall;
+      if (hasattr) write_item(os, ATTRIB(item));
+      write_item(os, CLOENV(item));
+      write_item(os, FORMALS(item));
+      item = BODY(item);
+	    goto tailcall;
+    }
 
   case SYMSXP:
     // no flags!
@@ -585,10 +605,13 @@ tailcall:
   if (hasattr) write_item(os, ATTRIB(item));
 }
 
-SEXP c_serialize(SEXP x, SEXP native_encoding) {
+SEXP c_serialize(SEXP x, SEXP native_encoding, SEXP calling_env,
+                 SEXP closxp_callback) {
   // const char* cnative_encoding = CHAR(STRING_ELT(native_encoding, 0));
   struct out_stream os;
   out_stream_init(&os);
+  os.calling_env = calling_env;
+  os.closxp_callback = closxp_callback;
   os.stream = open_memstream(&(os.buf), &(os.len));
   if (!os.stream) {
     R_THROW_POSIX_ERROR("Cannot open memory buffer for serialization");
@@ -701,7 +724,7 @@ SEXP c_weakrefsxp(SEXP key, SEXP val, SEXP fin, SEXP onexit) {
 // ------------------------------------------------------------------------
 
 static const R_CallMethodDef callMethods[]  = {
-  { "c_serialize",     (DL_FUNC) &c_serialize,     2 },
+  { "c_serialize",     (DL_FUNC) &c_serialize,     4 },
   { "c_missing_arg",   (DL_FUNC) &c_missing_arg,   0 },
   { "c_unbound_value", (DL_FUNC) &c_unbound_value, 0 },
   { "c_bnd_cell_int",  (DL_FUNC) &c_bnd_cell_int,  1 },
