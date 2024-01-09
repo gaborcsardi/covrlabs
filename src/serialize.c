@@ -213,6 +213,14 @@ void write_base_r(struct out_stream *os, SEXP item) {
 #define SET_BNDCELL_IVAL(cell, ival) SET_SCALAR_IVAL(CAR0(cell), ival)
 #define SET_BNDCELL_LVAL(cell, lval) SET_SCALAR_LVAL(CAR0(cell), lval)
 
+#define INIT_BNDCELL(cell, type) do {		\
+	SEXP val = allocVector(type, 1);	\
+	SETCAR(cell, val);			\
+	INCREMENT_NAMED(val);			\
+	SET_BNDCELL_TAG(cell, type);		\
+	SET_MISSING(cell, 0);			\
+    } while (0)
+
 #else
 /* Use a union in the CAR field to represent an SEXP or an immediate
    value.  More efficient, but changes the menory layout on 32 bit
@@ -231,6 +239,13 @@ typedef union {
 #define SET_BNDCELL_DVAL(cell, dval) (BNDCELL_DVAL(cell) = (dval))
 #define SET_BNDCELL_IVAL(cell, ival) (BNDCELL_IVAL(cell) = (ival))
 #define SET_BNDCELL_LVAL(cell, lval) (BNDCELL_LVAL(cell) = (lval))
+
+#define INIT_BNDCELL(cell, type) do {		\
+	if (BNDCELL_TAG(cell) == 0)		\
+	    SETCAR(cell, R_NilValue);		\
+	SET_BNDCELL_TAG(cell, type);		\
+	SET_MISSING(cell, 0);			\
+    } while (0)
 
 #endif
 
@@ -319,9 +334,13 @@ typedef struct SEXPREC {
 } SEXPREC;
 
 #define CAR0(e)		((e)->u.listsxp.carval)
-void (SET_BNDCELL_IVAL)(SEXP cell, int v);
+void (SET_BNDCELL_IVAL)(SEXP cell, int v) {
+  SET_BNDCELL_IVAL((cell), (v));
+}
 
-void (INIT_BNDCELL)(SEXP cell, int type);
+void (INIT_BNDCELL)(SEXP cell, int type) {
+  INIT_BNDCELL((cell), (type));
+}
 
 SEXP c_bnd_cell_int(SEXP val) {
   SEXP cell = PROTECT(Rf_allocSExp(LISTSXP));
