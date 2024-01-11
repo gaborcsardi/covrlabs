@@ -39,10 +39,10 @@
 #define MAX_PACKED_INDEX (INT_MAX >> 8)
 
 struct out_stream {
-  char * buf;
+  void * buf;
   size_t len;
+  size_t true_len;
   hmap_sexp smap;
-  FILE *stream;
   struct R_outpstream_st rstream;
   int header_size;
   int ignored;
@@ -50,28 +50,44 @@ struct out_stream {
   SEXP calling_env;
 };
 
-void out_stream_init(struct out_stream *os) {
-  os->buf = NULL;
-  os->len = 1024 * 1024;
-  os->stream = NULL;
-  os->ignored = -1;
-  os->closxp_callback = R_NilValue;
-}
-
 void out_stream_drop(struct out_stream *os) {
   if (os->buf) free(os->buf);
   hmap_sexp_drop(&os->smap);
-  if (os->stream) fclose(os->stream);
   os->buf = NULL;
-  os->stream = NULL;
+  os->len = os->true_len = 0;
+}
+
+void out_stream_realloc(struct out_stream *os, size_t newsize) {
+  void *newbuf = realloc(os->buf, newsize);
+  if (newbuf == NULL) {
+    out_stream_drop(os);
+    R_THROW_POSIX_ERROR("Cannot allocate memory for serialization");
+  }
+  os->buf = newbuf;
+  os->true_len = newsize;
+}
+
+void out_stream_init(struct out_stream *os, size_t alloc_size) {
+  os->buf = NULL;
+  os->len = 0;
+  os->true_len = 0;
+  os->ignored = -1;
+  os->closxp_callback = R_NilValue;
+  out_stream_realloc(os, alloc_size);
+}
+
+void out_stream_append_bytes(struct out_stream *os, void *addr, size_t n) {
+  size_t req = os->len + n;
+  if (req > os->true_len) {
+    // pretty aggressive reallocation, we try to avoid it, if possible
+    out_stream_realloc(os, req * 2);
+  }
+  memcpy(os->buf + os->len, addr, n);
+  os->len += n;
 }
 
 #define WRITE_BYTES(s, addr, size)                                \
-  do {                                                            \
-    if (fwrite((addr), 1 ,(size), (s)->stream) == EOF) {          \
-      out_stream_drop(s);                                         \
-      R_THROW_POSIX_ERROR("Cannot write bytes to memory buffer"); \
-  } } while (0)
+  out_stream_append_bytes((s), (void*) (addr), (size))
 
 #define WRITE_INTEGER(s, i)              \
   do {                                   \
@@ -80,10 +96,7 @@ void out_stream_drop(struct out_stream *os) {
   } while (0)
 
 #define WRITE_STRING(s, str)                                     \
-  if (fputs((str), ((s)->stream)) == EOF) {                      \
-    out_stream_drop(s);                                          \
-    R_THROW_POSIX_ERROR("Cannot write string to memory buffer"); \
-  }
+  out_stream_append_bytes((s), (void*) (str), strlen(str))
 
 #define WRITE_LENGTH(s, l)                 \
   do {                                     \
@@ -97,10 +110,7 @@ void out_stream_drop(struct out_stream *os) {
   } while (0)
 
 #define WRITE_VEC(s, addr, size, n)                                \
-    if (fwrite((addr), (size), (n), (s)->stream) == EOF) {         \
-      out_stream_drop(s);                                          \
-      R_THROW_POSIX_ERROR("Cannot write vector to memory buffer"); \
-    }
+  out_stream_append_bytes((s), (addr), size * n)
 
 void write_bc(struct out_stream *os, SEXP item);
 
@@ -607,13 +617,9 @@ SEXP c_serialize(SEXP x, SEXP native_encoding, SEXP calling_env,
                  SEXP closxp_callback) {
   // const char* cnative_encoding = CHAR(STRING_ELT(native_encoding, 0));
   struct out_stream os;
-  out_stream_init(&os);
+  out_stream_init(&os, 1024 * 1024);
   os.calling_env = calling_env;
   os.closxp_callback = closxp_callback;
-  os.stream = open_memstream(&(os.buf), &(os.len));
-  if (!os.stream) {
-    R_THROW_POSIX_ERROR("Cannot open memory buffer for serialization");
-  }
 
   WRITE_STRING(&os, "B\n");
   WRITE_INTEGER(&os, 2);
@@ -622,17 +628,14 @@ SEXP c_serialize(SEXP x, SEXP native_encoding, SEXP calling_env,
   // WRITE_INTEGER(&os, strlen(cnative_encoding));
   // WRITE_STRING(&os, cnative_encoding);
 
-  fflush(os.stream);
   os.header_size = os.len;
   os.smap = hmap_sexp_init();
 
   write_item(&os, x);
 
-  fflush(os.stream);
   SEXP out = Rf_allocVector(RAWSXP, os.len);
   memcpy(RAW(out), os.buf, os.len);
-  fclose(os.stream);
-  free(os.buf);
+  out_stream_drop(&os);
   return out;
 }
 
