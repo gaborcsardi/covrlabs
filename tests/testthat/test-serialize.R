@@ -182,6 +182,7 @@ test_that("RAWSXP", {
 })
 
 test_that("immediate bindings", {
+  if (getRversion() < "4.0.0") skip("Needs newer R version")
   expect_same_serialization(bnd_cell_int(41L))
   expect_same_serialization(bnd_cell_real(41))
   expect_same_serialization(bnd_cell_lgl(TRUE))
