@@ -39,7 +39,7 @@
 #define MAX_PACKED_INDEX (INT_MAX >> 8)
 
 struct out_stream {
-  void * buf;
+  char * buf;
   size_t len;
   size_t true_len;
   hmap_sexp smap;
@@ -87,7 +87,7 @@ void out_stream_append_bytes(struct out_stream *os, void *addr, size_t n) {
 }
 
 #define WRITE_BYTES(s, addr, size)                                \
-  out_stream_append_bytes((s), (void*) (addr), (size))
+  out_stream_append_bytes((s), (char*) (addr), (size))
 
 #define WRITE_INTEGER(s, i)              \
   do {                                   \
@@ -96,7 +96,7 @@ void out_stream_append_bytes(struct out_stream *os, void *addr, size_t n) {
   } while (0)
 
 #define WRITE_STRING(s, str)                                     \
-  out_stream_append_bytes((s), (void*) (str), strlen(str))
+  out_stream_append_bytes((s), (char*) (str), strlen(str))
 
 #define WRITE_LENGTH(s, l)                 \
   do {                                     \
