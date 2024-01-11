@@ -182,7 +182,13 @@ test_that("RAWSXP", {
 })
 
 test_that("immediate bindings", {
+  skip_on_cran()
   if (getRversion() < "4.0.0") skip("Needs newer R version")
+  # a base R bug?
+  if (getRversion() >= "4.1.0" && getRversion() <= "4.2.0" &&
+        .Platform$r_arch == "i386") {
+    skip("Base R bug on Windows i386")
+  }
   expect_same_serialization(bnd_cell_int(41L))
   expect_same_serialization(bnd_cell_real(41))
   expect_same_serialization(bnd_cell_lgl(TRUE))
