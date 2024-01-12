@@ -25,6 +25,10 @@ void out_stream_init_file(struct out_stream *os, const char *file) {
       file
     );
   }
+  if (BUFSIZ < 1024 * 64) {
+    setvbuf(os->outfile, NULL, _IOFBF, 1024 * 64);
+  }
+
   os->ignored = -1;
   os->closxp_callback = R_NilValue;
 }
