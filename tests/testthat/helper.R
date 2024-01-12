@@ -15,7 +15,7 @@ base_serialize <- function(
 
 expect_same_serialization <- function(object) {
   testthat::expect_equal(
-    serialize(object),
+    serialize_to_raw(object),
     base_serialize(object)
   )
 }

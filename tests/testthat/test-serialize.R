@@ -207,6 +207,6 @@ test_that("closxp_callback", {
   }
   # otherwise the environment, including f, f2, etc. is also saved
   environment(f) <- globalenv()
-  f2 <- unserialize(serialize(f, closxp_callback = trace_calls))
+  f2 <- unserialize(serialize_to_raw(f, closxp_callback = trace_calls))
   expect_equal(f2, trace_calls(f))
 })
