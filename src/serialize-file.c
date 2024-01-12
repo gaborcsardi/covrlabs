@@ -18,7 +18,7 @@ void out_stream_init_file(struct out_stream *os, const char *file) {
   os->len = 0;
   os->true_len = 0;
   os->file = file;
-  os->outfile = fopen(file, "w+");
+  os->outfile = fopen(file, "wb+");
   if (!os->outfile) {
     R_THROW_POSIX_ERROR(
       "Cannot open output file '%s' for seialization",
