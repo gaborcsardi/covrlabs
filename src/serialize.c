@@ -2,7 +2,10 @@
 
 void out_stream_drop(struct out_stream *os) {
   if (os->buf) free(os->buf);
-  if (os->fd >= 0) close(os->fd);
+  if (os->outfile) {
+    fflush(os->outfile);
+    fclose(os->outfile);
+  }
   hmap_sexp_drop(&os->smap);
   os->buf = NULL;
   os->len = os->true_len = 0;

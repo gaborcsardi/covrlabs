@@ -19,7 +19,7 @@ void out_stream_init_raw(struct out_stream *os, size_t alloc_size) {
   os->len = 0;
   os->true_len = 0;
   os->file = NULL;
-  os->fd = -1;
+  os->outfile = NULL;
   os->ignored = -1;
   os->closxp_callback = R_NilValue;
   out_stream_realloc(os, alloc_size);

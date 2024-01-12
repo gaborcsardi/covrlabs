@@ -5,13 +5,10 @@
 
 R_INLINE void out_stream_write_file(struct out_stream *os, void *addr,
                                     size_t n) {
-  ssize_t nw = write(os->fd, addr, n);
-  if (nw < 0) {
+  ssize_t nw = fwrite(addr, 1, n, os->outfile);
+  if (nw < n) {
     out_stream_drop(os);
     R_THROW_POSIX_ERROR("Cannot write to file '%s'.", os->file);
-  } else if (nw < n) {
-    out_stream_drop(os);
-    R_THROW_POSIX_ERROR("Cannot write all bytes to file '%s'.", os->file);
   }
   os->len += n;
 }
@@ -21,8 +18,8 @@ void out_stream_init_file(struct out_stream *os, const char *file) {
   os->len = 0;
   os->true_len = 0;
   os->file = file;
-  os->fd = open(file, O_CREAT | O_TRUNC| O_RDWR, 0644);
-  if (os->fd == -1) {
+  os->outfile = fopen(file, "w+");
+  if (!os->outfile) {
     R_THROW_POSIX_ERROR(
       "Cannot open output file '%s' for seialization",
       file

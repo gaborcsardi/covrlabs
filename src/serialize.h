@@ -1,9 +1,7 @@
 #ifndef SERIALIZE_H
 #define SERIALIZE_H
 
-#include <fcntl.h>    // open
-#include <unistd.h>   // close, write
-#include <stdio.h>    // rename
+#include <stdio.h>    // FILE
 
 #define R_NO_REMAP
 #include <R.h>
@@ -67,11 +65,11 @@ SEXP c_bnd_cell_real(SEXP val);
 #define MAX_PACKED_INDEX (INT_MAX >> 8)
 
 struct out_stream {
-  char * buf;
+  char *buf;
   size_t len;
   size_t true_len;
   const char *file;
-  int fd;
+  FILE *outfile;
   hmap_sexp smap;
   struct R_outpstream_st rstream;
   int header_size;
