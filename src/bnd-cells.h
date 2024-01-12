@@ -1,3 +1,6 @@
+#ifndef BND_CELLS_H
+#define BND_CELLS_H
+
 // See https://github.com/wch/r-source/blob/trunk/doc/notes/immbnd.md
 
 #define BNDCELL_TAG(e)	((e)->sxpinfo.extra)
@@ -143,3 +146,5 @@ typedef struct SEXPREC {
 SEXP c_bnd_cell_int(SEXP val);
 SEXP c_bnd_cell_lgl(SEXP val);
 SEXP c_bnd_cell_real(SEXP val);
+
+#endif
