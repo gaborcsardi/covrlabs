@@ -1,17 +1,21 @@
 test_that("NULL", {
   expect_same_serialization(NULL)
+  expect_same_serialization_file(NULL)
 })
 
 test_that("R_UnboundValue", {
   expect_same_serialization(list(unbound_value()))
+  expect_same_serialization_file(list(unbound_value()))
 })
 
 test_that("R_MissingArg", {
   expect_same_serialization(missing_arg())
+  expect_same_serialization_file(missing_arg())
 })
 
 test_that("ALTREP", {
   expect_same_serialization(1:10)
+  expect_same_serialization_file(1:10)
 })
 
 test_that("SYMSXP", {
@@ -19,21 +23,29 @@ test_that("SYMSXP", {
   bar <- as.name("bar")
   expect_same_serialization(foo)
   expect_same_serialization(list(foo, foo, bar, foo))
+  expect_same_serialization_file(foo)
+  expect_same_serialization_file(list(foo, foo, bar, foo))
 })
 
 test_that("ENVSXP", {
   # special envs
   expect_same_serialization(emptyenv())
+  expect_same_serialization_file(emptyenv())
   expect_same_serialization(baseenv())
+  expect_same_serialization_file(baseenv())
   expect_same_serialization(globalenv())
+  expect_same_serialization_file(globalenv())
   expect_same_serialization(.BaseNamespaceEnv)
+  expect_same_serialization_file(.BaseNamespaceEnv)
 
   # package env
-  suppressWarnings(
+  suppressWarnings({
     expect_same_serialization(as.environment("package:covrlabs"))
-  )
+    expect_same_serialization_file(as.environment("package:covrlabs"))
+  })
   # namespace env
   expect_same_serialization(asNamespace("covrlabs"))
+  expect_same_serialization_file(asNamespace("covrlabs"))
 
   # noname env
   e <- new.env(parent = emptyenv())
@@ -42,12 +54,15 @@ test_that("ENVSXP", {
   e2$bar <- c(1:3, 4L)
   e2$parent <- e
   expect_same_serialization(e2)
+  expect_same_serialization_file(e2)
 
   attr(e2, "a") <- list(1L)
   expect_same_serialization(e2)
+  expect_same_serialization_file(e2)
 
   # hashing
   expect_same_serialization(list(emptyenv(), emptyenv()))
+  expect_same_serialization_file(list(emptyenv(), emptyenv()))
 })
 
 test_that("LISTSXP", {
@@ -55,18 +70,22 @@ test_that("LISTSXP", {
   expect_same_serialization(pl)
   attr(pl, "a") <- list(1L)
   expect_same_serialization(pl)
+  expect_same_serialization_file(pl)
 })
 
 test_that("LANGSXP", {
   lng <- as.call(list(as.name("foo"), a = 1, b = 2))
   expect_same_serialization(lng)
+  expect_same_serialization_file(lng)
   attr(lng, "a") <- list(1L)
   expect_same_serialization(lng)
+  expect_same_serialization_file(lng)
 })
 
 test_that("PROMSXP", {
   f <- function(x) {
     expect_same_serialization(environment())
+    expect_same_serialization_file(environment())
   }
   f(10)
 })
@@ -74,6 +93,7 @@ test_that("PROMSXP", {
 test_that("DOTSXP", {
   f <- function(...) {
     expect_same_serialization(environment())
+    expect_same_serialization_file(environment())
   }
   f(10)
 })
@@ -81,39 +101,49 @@ test_that("DOTSXP", {
 test_that("CLOSXP", {
   f <- function() NULL
   expect_same_serialization(f)
+  expect_same_serialization_file(f)
 
   # arg
   f2 <- function(a = 1) a
   expect_same_serialization(f2)
+  expect_same_serialization_file(f2)
 
   # missing arg
   f3 <- function(a) a
   expect_same_serialization(f3)
+  expect_same_serialization_file(f3)
 
   # attr
   attr(f, "a") <- list(1L)
   expect_same_serialization(f)
+  expect_same_serialization_file(f)
 })
 
 test_that("EXTPTRSXP", {
   expect_same_serialization((xptrsxp()))
+  expect_same_serialization_file((xptrsxp()))
 })
 
 test_that("WEAKREFSXP", {
   expect_same_serialization((weakrefsxp()))
+  expect_same_serialization_file((weakrefsxp()))
 })
 
 test_that("SPECIALSXP", {
   expect_same_serialization(base::on.exit)
+  expect_same_serialization_file(base::on.exit)
 })
 
 test_that("BUILTINSXP", {
   expect_same_serialization(base::names)
+  expect_same_serialization_file(base::names)
 })
 
 test_that("CHARSXP", {
   expect_same_serialization("foo")
   expect_same_serialization(structure("foo", names = "bar"))
+  expect_same_serialization_file("foo")
+  expect_same_serialization_file(structure("foo", names = "bar"))
 })
 
 test_that("LGLSXP", {

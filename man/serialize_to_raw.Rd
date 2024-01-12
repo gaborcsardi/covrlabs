@@ -2,9 +2,12 @@
 % Please edit documentation in R/serialize.R
 \name{serialize_to_raw}
 \alias{serialize_to_raw}
+\alias{serialize_to_file}
 \title{Serialize R objects}
 \usage{
 serialize_to_raw(object, closxp_callback = NULL)
+
+serialize_to_file(object, path, closxp_callback = NULL)
 }
 \arguments{
 \item{object}{Object to serialize.}
@@ -14,9 +17,15 @@ function to transform closures. It is called for every function. It is
 also called on functions embedded into functions. (First on the outer
 function, and if it returns a function that embeds functions, then
 on those.)}
+
+\item{path}{File to write the serialization to. \code{serialize_to_file()}
+writes to a temporary file first, and then renames that file. This is
+avoid creating an invalid output file.}
 }
 \value{
-Raw vector, serialization of \code{object}.
+\code{serialize_to_raw()} returns a raw vector.
+
+\code{serialize_to_file()} returns \code{NULL}.
 }
 \description{
 Equivalent to base R' serialization format, with parameters

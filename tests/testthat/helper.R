@@ -20,6 +20,20 @@ expect_same_serialization <- function(object) {
   )
 }
 
+read_bin <- function(path) {
+  readBin(path, what = "raw", n = file.size(path))
+}
+
+expect_same_serialization_file <- function(object) {
+  tmp <- tempfile()
+  on.exit(unlink(tmp), add = TRUE)
+  serialize_to_file(object, tmp)
+  testthat::expect_equal(
+    read_bin(tmp),
+    base_serialize(object)
+  )
+}
+
 remove_source <- function(x) {
   if (is.function(x)) {
     body(x) <- remove_source(body(x))
