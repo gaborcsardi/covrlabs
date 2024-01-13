@@ -34,7 +34,7 @@ serialize_to_raw <- function(object, closxp_callback = NULL) {
 
 serialize_to_file <- function(object, path, closxp_callback = NULL) {
   tmp_path <- paste0(path, "-tmp-", Sys.getpid())
-  .Call(
+  invisible(.Call(
     c_serialize_file,
     object,
     path,
@@ -42,5 +42,29 @@ serialize_to_file <- function(object, path, closxp_callback = NULL) {
     the$native_encoding,
     environment(),
     closxp_callback
-  )
+  ))
+}
+
+#' Serialize an R object into an `.rds` file
+#'
+#' This function is similar to [base::saveRDS()], but it uses a
+#' different serialization implementation. Differences:
+#'
+#' * Slightly faster implementation, in most cases.
+#' * Multi-byte output is in host byte-order (the same as choosing
+#'   `xdr = FALSE` for [base::serialize()]).
+#' * No compression.
+#' * It always uses workspace format 2, and expands ALTREP objects.
+#' * Has a hook for closures, the `closxp_callback` argument.
+#' * Does not have a hook for reference objects.
+#'
+#' @param object R object to serialize.
+#' @param file Output file.
+#' @inheritParams serialize_to_raw
+#'
+#' @seealso [serialize_to_raw()], [base::saveRDS()], [base::readRDS()].
+#' @export
+
+save_rds <- function(object, file, closxp_callback = NULL) {
+  serialize_to_file(object, file, closxp_callback)
 }
