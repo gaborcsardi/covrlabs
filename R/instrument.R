@@ -71,6 +71,7 @@ trace_calls_ <- function(
     }
 
     fun_body <- body(x)
+    attrs <- attributes(x)
 
     if (is_curly_fn(x, fun_body)) {
       src_ref <- attr(x, "srcref")
@@ -91,6 +92,7 @@ trace_calls_ <- function(
     if (is.null(new_formals)) new_formals <- list()
     formals(x) <- new_formals
     body(x) <- fun_body
+    attributes(x) <- attrs
 
     if (compile) {
       try_compile(x)
