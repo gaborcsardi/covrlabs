@@ -24,3 +24,11 @@ try_compile <- function(fn) {
     error = function(e) fn
   )
 }
+
+lock_env <- function(env) {
+  .Call(c_lock_env, env)
+}
+
+unlock_env <- function(env) {
+  .Call(c_unlock_env, env)
+}

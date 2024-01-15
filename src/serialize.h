@@ -90,4 +90,11 @@ SEXP findrep(SEXP x, SEXP reps);
 SEXP scan_for_circles(SEXP item);
 #define cons(a,b) Rf_cons(a,b)
 
+#define FRAME_LOCK_MASK (1<<14)
+#define FRAME_IS_LOCKED(e) (ENVFLAGS(e) & FRAME_LOCK_MASK)
+#define LOCK_FRAME(e) SET_ENVFLAGS(e, ENVFLAGS(e) | FRAME_LOCK_MASK)
+#define UNLOCK_FRAME(e) SET_ENVFLAGS(e, ENVFLAGS(e) & (~ FRAME_LOCK_MASK))
+SEXP c_lock_env(SEXP env);
+SEXP c_unlock_env(SEXP env);
+
 #endif

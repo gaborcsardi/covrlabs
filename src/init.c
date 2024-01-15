@@ -5,6 +5,10 @@
 static const R_CallMethodDef callMethods[]  = {
   { "c_serialize",      (DL_FUNC) &c_serialize,      4 },
   { "c_serialize_file", (DL_FUNC) &c_serialize_file, 6 },
+
+  { "c_lock_env",       (DL_FUNC) &c_lock_env,       1 },
+  { "c_unlock_env",     (DL_FUNC) &c_unlock_env,     1 },
+
   { "c_missing_arg",    (DL_FUNC) &c_missing_arg,    0 },
   { "c_unbound_value",  (DL_FUNC) &c_unbound_value,  0 },
   { "c_bnd_cell_int",   (DL_FUNC) &c_bnd_cell_int,   1 },

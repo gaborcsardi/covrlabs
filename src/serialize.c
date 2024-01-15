@@ -44,6 +44,22 @@ R_INLINE int get_flags(SEXP item) {
   return flags;
 }
 
+SEXP c_lock_env(SEXP env) {
+  if (!Rf_isEnvironment(env)) {
+    R_THROW_ERROR("`env` must be an environment");
+  }
+  LOCK_FRAME(env);
+  return R_NilValue;
+}
+
+SEXP c_unlock_env(SEXP env) {
+  if (!Rf_isEnvironment(env)) {
+    R_THROW_ERROR("`env` must be an environment");
+  }
+  UNLOCK_FRAME(env);
+  return R_NilValue;
+}
+
 // ------------------------------------------------------------------------
 // Output independent part of byte code serializer
 
