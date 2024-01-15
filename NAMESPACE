@@ -2,6 +2,7 @@
 
 S3method(format,sexprec_summary)
 S3method(print,sexprec_summary)
+export(save_env_to_raw)
 export(save_rds)
 export(serialize_to_file)
 export(serialize_to_raw)

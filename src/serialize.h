@@ -15,6 +15,9 @@ SEXP c_serialize_file(SEXP x, SEXP path, SEXP tmp_path,
                       SEXP natice_encoding, SEXP calling_env,
                       SEXP closxp_callback);
 
+SEXP c_save_env_to_raw(SEXP env, SEXP nms, SEXP native_encoding,
+                       SEXP calling_env, SEXP closxp_callback);
+
 SEXP c_missing_arg(void);
 SEXP c_unbound_value(void);
 SEXP c_sexprec(SEXP x);
@@ -26,6 +29,9 @@ SEXP c_weakrefsxp(SEXP key, SEXP val, SEXP fin, SEXP onexit);
 SEXP c_bnd_cell_int(SEXP val);
 SEXP c_bnd_cell_lgl(SEXP val);
 SEXP c_bnd_cell_real(SEXP val);
+
+SEXP c_lock_env(SEXP env);
+SEXP c_unlock_env(SEXP env);
 
 // ------------------------------------------------------------------------
 // internals
@@ -89,12 +95,5 @@ int get_flags(SEXP item);
 SEXP findrep(SEXP x, SEXP reps);
 SEXP scan_for_circles(SEXP item);
 #define cons(a,b) Rf_cons(a,b)
-
-#define FRAME_LOCK_MASK (1<<14)
-#define FRAME_IS_LOCKED(e) (ENVFLAGS(e) & FRAME_LOCK_MASK)
-#define LOCK_FRAME(e) SET_ENVFLAGS(e, ENVFLAGS(e) | FRAME_LOCK_MASK)
-#define UNLOCK_FRAME(e) SET_ENVFLAGS(e, ENVFLAGS(e) & (~ FRAME_LOCK_MASK))
-SEXP c_lock_env(SEXP env);
-SEXP c_unlock_env(SEXP env);
 
 #endif

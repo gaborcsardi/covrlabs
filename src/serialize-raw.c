@@ -42,3 +42,35 @@ SEXP c_serialize(SEXP x, SEXP native_encoding, SEXP calling_env,
   out_stream_drop(&os);
   return out;
 }
+
+SEXP c_save_env_to_raw(SEXP env, SEXP nms, SEXP native_encoding,
+                       SEXP calling_env, SEXP closxp_callback) {
+  struct out_stream os;
+  out_stream_init_raw(&os, INITIAL_SIZE);
+  os.calling_env = calling_env;
+  os.closxp_callback = closxp_callback;
+  os.smap = hmap_sexp_init();
+
+  size_t i, len = XLENGTH(nms);
+  SEXP pl, tpl;
+
+  PROTECT(pl = Rf_allocList(len));
+  for (tpl = pl, i = 0; i < len; i++, tpl = CDR(tpl)) {
+    SET_TAG(tpl, Rf_installTrChar(STRING_ELT(nms, i)));
+    SEXP val = Rf_findVar(TAG(tpl), env);
+    if (TYPEOF(val) == PROMSXP) {
+      REprintf("promise!\n");
+    }
+	  SETCAR(tpl, val);
+  }
+
+  write_string_raw(&os, "RDB2\n");
+  write_header_raw(&os);
+  write_item_raw(&os, pl);
+
+  SEXP out = Rf_allocVector(RAWSXP, os.len);
+  memcpy(RAW(out), os.buf, os.len);
+  out_stream_drop(&os);
+  UNPROTECT(1);
+  return out;
+}

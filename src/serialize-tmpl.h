@@ -341,6 +341,10 @@ void FUN(write_header)(struct out_stream *os) {
   os->header_size = os->len;
 }
 
+void FUN(write_string)(struct out_stream *os, const char *str) {
+  WRITE_STRING(os, str);
+}
+
 // ------------------------------------------------------------------------
 // BYTECODE
 // ------------------------------------------------------------------------

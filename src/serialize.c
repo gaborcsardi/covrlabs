@@ -44,6 +44,11 @@ R_INLINE int get_flags(SEXP item) {
   return flags;
 }
 
+#define FRAME_LOCK_MASK (1<<14)
+#define FRAME_IS_LOCKED(e) (ENVFLAGS(e) & FRAME_LOCK_MASK)
+#define LOCK_FRAME(e) SET_ENVFLAGS(e, ENVFLAGS(e) | FRAME_LOCK_MASK)
+#define UNLOCK_FRAME(e) SET_ENVFLAGS(e, ENVFLAGS(e) & (~ FRAME_LOCK_MASK))
+
 SEXP c_lock_env(SEXP env) {
   if (!Rf_isEnvironment(env)) {
     R_THROW_ERROR("`env` must be an environment");

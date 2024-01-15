@@ -68,3 +68,27 @@ serialize_to_file <- function(object, path, closxp_callback = NULL) {
 save_rds <- function(object, file, closxp_callback = NULL) {
   serialize_to_file(object, file, closxp_callback)
 }
+
+#' Serialize an environment into a raw vector
+#'
+#' This function is even more experimental than this experimental package.
+#'
+#' @param env Enviropnment to serialize.
+#' @param skip Names of objects in `env` to skip.
+#' @inheritParams serialize_to_raw
+#'
+#' @seealso [base::save()]
+#' @export
+
+save_env_to_raw <- function(env, skip = c(".__NAMESPACE__."),
+                            closxp_callback = NULL) {
+  nms <- setdiff(ls(env, all.names = TRUE), skip)
+  .Call(
+    c_save_env_to_raw,
+    env,
+    nms,
+    the$native_encoding,
+    environment(),
+    closxp_callback
+  )
+}
