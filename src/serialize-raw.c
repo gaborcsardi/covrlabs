@@ -59,7 +59,9 @@ SEXP c_save_env_to_raw(SEXP env, SEXP nms, SEXP native_encoding,
     SET_TAG(tpl, Rf_installTrChar(STRING_ELT(nms, i)));
     SEXP val = Rf_findVar(TAG(tpl), env);
     if (TYPEOF(val) == PROMSXP) {
-      REprintf("promise!\n");
+      PROTECT(val);
+      val = Rf_eval(val, env);
+      UNPROTECT(1);
     }
 	  SETCAR(tpl, val);
   }
