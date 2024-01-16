@@ -14,15 +14,25 @@ new_counter <- function(src_ref, parent_functions) {
 #' @param key generated with [key()]
 #' @keywords internal
 count <- function(key) {
-  .counters[[key]]$value <- .counters[[key]]$value + 1L
+  .counters[[key]]$value <- (.counters[[key]]$value %||% 0L) + 1L
 }
 
 #' clear all previous counters
 #'
-#' @keywords internal
+#' @export
+
 clear_counters <- function() {
   rm(envir = .counters, list = ls(envir = .counters))
   rm(envir = .current_test, list = ls(envir = .current_test))
+}
+
+#' Save counters
+#'
+#' @export
+
+save_trace <- function() {
+  trace_path <- basename(tempfile("covr_trace_"))
+  saveRDS(.counters, file = trace_path)
 }
 
 #' Generate a key for a  call

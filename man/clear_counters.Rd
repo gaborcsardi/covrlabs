@@ -9,4 +9,3 @@ clear_counters()
 \description{
 clear all previous counters
 }
-\keyword{internal}

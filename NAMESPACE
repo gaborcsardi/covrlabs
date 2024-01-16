@@ -2,8 +2,10 @@
 
 S3method(format,sexprec_summary)
 S3method(print,sexprec_summary)
+export(clear_counters)
 export(save_env_to_raw)
 export(save_rds)
+export(save_trace)
 export(serialize_to_file)
 export(serialize_to_raw)
 export(trace_calls)
