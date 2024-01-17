@@ -1,5 +1,4 @@
 .counters <- new.env(parent = emptyenv())
-.current_test <- new.env(parent = emptyenv())
 
 new_counter <- function(src_ref, parent_functions) {
   key <- key(src_ref)
@@ -17,13 +16,34 @@ count <- function(key) {
   .counters[[key]]$value <- (.counters[[key]]$value %||% 0L) + 1L
 }
 
-#' clear all previous counters
+#' Delete all previous counters
 #'
 #' @export
 
 clear_counters <- function() {
   rm(envir = .counters, list = ls(envir = .counters))
-  rm(envir = .current_test, list = ls(envir = .current_test))
+}
+
+#' Reset all previous counters
+#'
+#' @export
+
+reset_counters <- function() {
+  for (key in names(.counters)) {
+    .counters[[key]]$value <- 0L
+  }
+}
+
+#' Add externally saved counters
+#'
+#' @param cnt Counters to add, in an environment.
+#'
+#' @export
+
+add_counters <- function(cnt) {
+  for (key in names(cnt)) {
+    .counters[[key]] <- .counters[[key]] %||% cnt[[key]]
+  }
 }
 
 #' Save counters

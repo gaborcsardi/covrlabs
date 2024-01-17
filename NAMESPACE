@@ -2,7 +2,9 @@
 
 S3method(format,sexprec_summary)
 S3method(print,sexprec_summary)
+export(add_counters)
 export(clear_counters)
+export(reset_counters)
 export(save_env_to_raw)
 export(save_rds)
 export(save_trace)

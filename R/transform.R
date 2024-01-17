@@ -48,22 +48,23 @@ transform_env <- function(env, skip = NULL, closxp_callback = NULL) {
 #'
 #' @param package Package name of the package to transform. If it is not
 #'   loaded, `transform_package` will load it.
-#' @inheritParams transform_object
+#' @inheritParams transform_env
 #'
 #' @family transform functions
 #' @export
 
-transform_package <- function(package, closxp_callback = NULL) {
+transform_package <- function(package, skip = ".__NAMESPACE__.",
+                              closxp_callback = NULL) {
   pkgenv <- pkg_env(package) %||% new.env(parent = emptyenv())
   nsenv <- ns_env(package)
   if (is.null(nsenv)) loadNamespace(package)
   pkg_nms <- if (!is.null(pkgenv)) {
     unlock_env(pkgenv)
-    ls(pkgenv, all.names = TRUE)
+    setdiff(ls(pkgenv, all.names = TRUE), skip)
   }
   ns_nms <- if (!is.null(nsenv)) {
     unlock_env(nsenv)
-    ls(nsenv, all.names = TRUE)
+    setdiff(ls(nsenv, all.names = TRUE), skip)
   }
   .Call(
     c_transform_pkg,

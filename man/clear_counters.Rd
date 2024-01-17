@@ -2,10 +2,10 @@
 % Please edit documentation in R/counters.R
 \name{clear_counters}
 \alias{clear_counters}
-\title{clear all previous counters}
+\title{Delete all previous counters}
 \usage{
 clear_counters()
 }
 \description{
-clear all previous counters
+Delete all previous counters
 }
