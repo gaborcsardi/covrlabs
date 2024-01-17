@@ -22,6 +22,9 @@
     <loc>http://gaborcsardi.org/covrlabs/index.html</loc>
   </url>
   <url>
+    <loc>http://gaborcsardi.org/covrlabs/reference/add_counters.html</loc>
+  </url>
+  <url>
     <loc>http://gaborcsardi.org/covrlabs/reference/clear_counters.html</loc>
   </url>
   <url>
@@ -32,6 +35,9 @@
   </url>
   <url>
     <loc>http://gaborcsardi.org/covrlabs/reference/key.html</loc>
+  </url>
+  <url>
+    <loc>http://gaborcsardi.org/covrlabs/reference/reset_counters.html</loc>
   </url>
   <url>
     <loc>http://gaborcsardi.org/covrlabs/reference/save_env_to_raw.html</loc>
