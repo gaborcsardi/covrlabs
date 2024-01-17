@@ -48,4 +48,13 @@
   <url>
     <loc>http://gaborcsardi.org/covrlabs/reference/trace_calls.html</loc>
   </url>
+  <url>
+    <loc>http://gaborcsardi.org/covrlabs/reference/transform_env.html</loc>
+  </url>
+  <url>
+    <loc>http://gaborcsardi.org/covrlabs/reference/transform_object.html</loc>
+  </url>
+  <url>
+    <loc>http://gaborcsardi.org/covrlabs/reference/transform_package.html</loc>
+  </url>
 </urlset>
