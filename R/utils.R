@@ -25,10 +25,25 @@ try_compile <- function(fn) {
   )
 }
 
+is_locked_env <- function(env) {
+  .Call(c_is_locked_env, env)
+}
+
 lock_env <- function(env) {
   .Call(c_lock_env, env)
 }
 
 unlock_env <- function(env) {
   .Call(c_unlock_env, env)
+}
+
+pkg_env <- function(package) {
+  nm <- paste0("package:", package)
+  e <- if (nm %in% search()) as.environment(nm)
+  e
+}
+
+ns_env <- function(package) {
+  e <- if (package %in% loadedNamespaces()) asNamespace(package)
+  e
 }

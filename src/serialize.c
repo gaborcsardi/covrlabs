@@ -65,6 +65,13 @@ SEXP c_unlock_env(SEXP env) {
   return R_NilValue;
 }
 
+SEXP c_is_locked_env(SEXP env) {
+  if (!Rf_isEnvironment(env)) {
+    R_THROW_ERROR("`env` must be an environment");
+  }
+  return Rf_ScalarLogical(FRAME_IS_LOCKED(env));
+}
+
 // ------------------------------------------------------------------------
 // Output independent part of byte code serializer
 

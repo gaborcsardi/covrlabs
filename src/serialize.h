@@ -18,6 +18,15 @@ SEXP c_serialize_file(SEXP x, SEXP path, SEXP tmp_path,
 SEXP c_save_env_to_raw(SEXP env, SEXP nms, SEXP native_encoding,
                        SEXP calling_env, SEXP closxp_callback);
 
+SEXP c_transform(SEXP x, SEXP calling_env, SEXP closxp_callback);
+
+SEXP c_transform_env(SEXP env, SEXP nms, SEXP calling_env,
+                     SEXP closxp_callback);
+
+SEXP c_transform_pkg(SEXP pkgenv, SEXP nsenv, SEXP pkgnms,
+                     SEXP nsnms, SEXP calling_env,
+                     SEXP closxp_callback);
+
 SEXP c_missing_arg(void);
 SEXP c_unbound_value(void);
 SEXP c_sexprec(SEXP x);
@@ -32,6 +41,7 @@ SEXP c_bnd_cell_real(SEXP val);
 
 SEXP c_lock_env(SEXP env);
 SEXP c_unlock_env(SEXP env);
+SEXP c_is_locked_env(SEXP env);
 
 // ------------------------------------------------------------------------
 // internals
