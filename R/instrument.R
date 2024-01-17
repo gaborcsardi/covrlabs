@@ -152,3 +152,16 @@ is_assignment <- function(x) {
     is.call(x[[3]]) &&
     identical(x[[3]][[1]], as.name("function"))
 }
+
+#' Trace functions in a package
+#'
+#' Uses [transform_package()] with [trace_calls()] as the callback for
+#' function objects.
+#'
+#' @param package Package name.
+#'
+#' @export
+
+trace_package <- function(package) {
+  transform_package(package, closxp_callback = trace_calls)
+}
