@@ -1,5 +1,10 @@
 #include "serialize.h"
 
+SEXP c_read_file_raw(SEXP path);
+SEXP c_parse_gcov(SEXP path);
+
+SEXP c_find_last_line(SEXP bytes);
+
 // ------------------------------------------------------------------------
 
 static const R_CallMethodDef callMethods[]  = {
@@ -24,6 +29,12 @@ static const R_CallMethodDef callMethods[]  = {
   { "c_anysxp",          (DL_FUNC) &c_anysxp,          0 },
   { "c_xptrsxp",         (DL_FUNC) &c_xptrsxp,         2 },
   { "c_weakrefsxp",      (DL_FUNC) &c_weakrefsxp,      4 },
+
+  { "c_read_file_raw",   (DL_FUNC) &c_read_file_raw,   1 },
+  { "c_parse_gcov",      (DL_FUNC) &c_parse_gcov,      1 },
+
+  { "c_find_last_line",  (DL_FUNC) &c_find_last_line,  1 },
+
   { NULL, NULL, 0 }
 };
 

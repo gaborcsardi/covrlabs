@@ -51,6 +51,12 @@
 SEXP r_throw_error(const char *func, const char *filename, int line,
                    const char *msg, ...);
 
+#define R_FORMAT_ERROR(...) \
+  r_format_error(__func__, __FILE__, __LINE__, __VA_ARGS__)
+
+SEXP r_format_error(const char *func, const char *filename, int line,
+                    const char *msg, ...);
+
 #ifdef _WIN32
 
 /* Throw a system error on Windows.
@@ -90,9 +96,19 @@ SEXP r_throw_error(const char *func, const char *filename, int line,
 #define R_THROW_SYSTEM_ERROR_CODE(errorcode, ...)                       \
   r_throw_system_error(__func__, __FILE__, __LINE__, (errorcode), NULL, __VA_ARGS__)
 
+#define R_FORMAT_SYSTEM_ERROR(...)                                       \
+  r_format_system_error(__func__, __FILE__, __LINE__, (-1), NULL, __VA_ARGS__)
+#define R_FORMAT_SYSTEM_ERROR_CODE(errorcode, ...)                       \
+  r_format_system_error(__func__, __FILE__, __LINE__, (errorcode), NULL, __VA_ARGS__)
+
+
 SEXP r_throw_system_error(const char *func, const char *filename, int line,
                           DWORD errorcode, const char *sysmsg,
                           const char *msg, ...);
+
+SEXP r_format_system_error(const char *func, const char *filename, int line,
+                           DWORD errorcode, const char *sysmsg,
+                           const char *msg, ...);
 
 /* Throw an error for a POSIX system call failure on Windows or in
  * portable code that is shared between Unix and Windows.
@@ -134,9 +150,18 @@ SEXP r_throw_system_error(const char *func, const char *filename, int line,
 #define R_THROW_POSIX_ERROR_CODE(errorcode, ...)           \
   r_throw_posix_error(__func__, __FILE__, __LINE__, errorcode, NULL, __VA_ARGS__)
 
+#define R_FORMAT_POSIX_ERROR(...)                                        \
+  r_format_posix_error(__func__, __FILE__, __LINE__, errno, NULL, __VA_ARGS__)
+#define R_FORMAT_POSIX_ERROR_CODE(errorcode, ...)           \
+  r_format_posix_error(__func__, __FILE__, __LINE__, errorcode, NULL, __VA_ARGS__)
+
 SEXP r_throw_posix_error(const char *func, const char *filename, int line,
                          int errorcode, const char *sysmsg,
                          const char *msg, ...);
+
+SEXP r_format_posix_error(const char *func, const char *filename, int line,
+                          int errorcode, const char *sysmsg,
+                          const char *msg, ...);
 
 #else
 
@@ -154,9 +179,24 @@ SEXP r_throw_posix_error(const char *func, const char *filename, int line,
 #define R_THROW_POSIX_ERROR_CODE(errorcode, ...)            \
   r_throw_system_error(__func__, __FILE__, __LINE__, errorcode, NULL, __VA_ARGS__)
 
+#define R_FORMAT_SYSTEM_ERROR(...) \
+  r_format_system_error(__func__, __FILE__, __LINE__, errno, NULL, __VA_ARGS__)
+#define R_FORMAT_SYSTEM_ERROR_CODE(errorcode, ...)           \
+  r_format_system_error(__func__, __FILE__, __LINE__, errorcode, NULL, __VA_ARGS__)
+
+#define R_FORMAT_POSIX_ERROR(...) \
+  r_format_system_error(__func__, __FILE__, __LINE__, errno, NULL, __VA_ARGS__)
+#define R_FORMAT_POSIX_ERROR_CODE(errorcode, ...)            \
+  r_format_system_error(__func__, __FILE__, __LINE__, errorcode, NULL, __VA_ARGS__)
+
 SEXP r_throw_system_error(const char *func, const char *filename, int line,
                           int errorcode, const char *sysmsg,
                           const char *msg, ...);
+
+SEXP r_format_system_error(const char *func, const char *filename, int line,
+                           int errorcode, const char *sysmsg,
+                           const char *msg, ...);
+
 #endif
 
 #endif
