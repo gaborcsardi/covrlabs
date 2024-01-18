@@ -1,6 +1,5 @@
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/uio.h>
 #include <unistd.h>
 
 #define R_NO_REMAP
@@ -139,15 +138,22 @@ SEXP c_find_last_line(SEXP bytes) {
 SEXP c_parse_gcov(SEXP path) {
   SEXP bytes = PROTECT(c_read_file_raw(path));
   size_t nlines = find_last_line((char*) RAW(bytes), XLENGTH(bytes));
-  const char *res_names[] = { "line", "coverage", "code", "" };
+  const char *res_names[] = { "file", "line", "coverage", "code", "" };
   SEXP res = PROTECT(Rf_mkNamed(VECSXP, res_names));
-  SET_VECTOR_ELT(res, 0, Rf_allocVector(INTSXP, nlines));
+  SET_VECTOR_ELT(res, 0, Rf_allocVector(STRSXP, nlines));
   SET_VECTOR_ELT(res, 1, Rf_allocVector(INTSXP, nlines));
-  SET_VECTOR_ELT(res, 2, Rf_allocVector(STRSXP, nlines));
+  SET_VECTOR_ELT(res, 2, Rf_allocVector(INTSXP, nlines));
+  SET_VECTOR_ELT(res, 3, Rf_allocVector(STRSXP, nlines));
 
-  SEXP rlin = VECTOR_ELT(res, 0);
-  SEXP rcov = VECTOR_ELT(res, 1);
-  SEXP code = VECTOR_ELT(res, 2);
+  SEXP rfil = VECTOR_ELT(res, 0);
+  SEXP rlin = VECTOR_ELT(res, 1);
+  SEXP rcov = VECTOR_ELT(res, 2);
+  SEXP code = VECTOR_ELT(res, 3);
+
+  SEXP file = STRING_ELT(path, 0);
+  for (size_t i = 0; i < nlines; i++) {
+    SET_STRING_ELT(rfil, i, file);
+  }
 
   char *beg = (char*) RAW(bytes);
   char *end = beg + XLENGTH(bytes);
