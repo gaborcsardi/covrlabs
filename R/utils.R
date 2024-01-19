@@ -47,3 +47,7 @@ ns_env <- function(package) {
   e <- if (package %in% loadedNamespaces()) asNamespace(package)
   e
 }
+
+read_lines <- function(path) {
+  .Call(c_read_lines, path)
+}

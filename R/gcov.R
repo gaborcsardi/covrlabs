@@ -48,7 +48,7 @@ run_gcov <- function(root) {
 #' @param path Path to the `.gcov` file.
 #' @return Data frame with columns:
 #'   * `file`: Absolute path to source file.
-#'   * `line`: Line number, numering start with 1.
+#'   * `line`: Line number, numbering start with 1.
 #'   * `coverage`: Number of times this line was executed. If `NA`, then
 #'     it is not a code line that can be executed.
 #'   * `code`: Character vector, the actual code.
@@ -72,7 +72,7 @@ parse_gcov_file <- function(path) {
 #' @param root Root path, typically the root of an R package tree.
 #' @return Data frame with columns:
 #'   * `file`: Absolute path to source file.
-#'   * `line`: Line number, numering start with 1.
+#'   * `line`: Line number, numbering start with 1.
 #'   * `coverage`: Number of times this line was executed. If `NA`, then
 #'     it is not a code line that can be executed.
 #'   * `code`: Character vector, the actual code.

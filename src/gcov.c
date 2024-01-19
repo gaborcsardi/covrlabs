@@ -59,6 +59,48 @@ SEXP c_read_file_raw(SEXP path) {
   return ret;
 }
 
+SEXP c_read_lines(SEXP path) {
+  SEXP ret = PROTECT(c__read_file_raw(CHAR(STRING_ELT(path, 0))));
+  if (TYPEOF(ret) != RAWSXP) {
+    R_THROW_ERROR(CHAR(STRING_ELT(ret, 0)));
+  }
+
+  // count number of lines first
+  char *beg = (char*) RAW(ret);
+  char *end = beg + XLENGTH(ret);
+  char *ptr = beg;
+  size_t nlines = 0;
+  while (ptr < end) {
+    ptr = strchr(ptr, '\n');
+    if (ptr) {
+      ptr++;
+      nlines++;
+    } else {
+      nlines++;
+      break;
+    }
+  }
+
+  SEXP lines = PROTECT(Rf_allocVector(STRSXP, nlines));
+  char *lbeg = beg;
+  char *lend = beg;
+  size_t lno = 0;
+  while (lbeg < end) {
+    lend = strchr(lbeg, '\n');
+    if (lend) {
+      SET_STRING_ELT(lines, lno, Rf_mkCharLen(lbeg, lend - lbeg));
+      lbeg = ++lend;
+      lno++;
+    } else {
+      SET_STRING_ELT(lines, lno, Rf_mkCharLen(lbeg, end - lbeg));
+      break;
+    }
+  }
+
+  UNPROTECT(2);
+  return lines;
+}
+
 int parse_num(char *start, char *end, size_t *ret) {
   size_t tret = 0;
   *ret = 0;

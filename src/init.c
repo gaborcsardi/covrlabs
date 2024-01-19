@@ -1,6 +1,7 @@
 #include "serialize.h"
 
 SEXP c_read_file_raw(SEXP path);
+SEXP c_read_lines(SEXP path);
 SEXP c_parse_gcov(SEXP path);
 
 SEXP c_find_last_line(SEXP bytes);
@@ -31,6 +32,7 @@ static const R_CallMethodDef callMethods[]  = {
   { "c_weakrefsxp",      (DL_FUNC) &c_weakrefsxp,      4 },
 
   { "c_read_file_raw",   (DL_FUNC) &c_read_file_raw,   1 },
+  { "c_read_lines",      (DL_FUNC) &c_read_lines,      1 },
   { "c_parse_gcov",      (DL_FUNC) &c_parse_gcov,      1 },
 
   { "c_find_last_line",  (DL_FUNC) &c_find_last_line,  1 },

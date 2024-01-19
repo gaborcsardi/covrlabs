@@ -52,7 +52,7 @@ add_counters <- function(cnt) {
 
 save_trace <- function() {
   trace_path <- basename(tempfile("covr_trace_"))
-  saveRDS(.counters, file = trace_path)
+  save_rds(.counters, file = trace_path)
 }
 
 #' Generate a key for a  call

@@ -13,7 +13,7 @@ parse_gcov(root)
 Data frame with columns:
 \itemize{
 \item \code{file}: Absolute path to source file.
-\item \code{line}: Line number, numering start with 1.
+\item \code{line}: Line number, numbering start with 1.
 \item \code{coverage}: Number of times this line was executed. If \code{NA}, then
 it is not a code line that can be executed.
 \item \code{code}: Character vector, the actual code.
