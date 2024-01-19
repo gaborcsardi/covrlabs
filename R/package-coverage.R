@@ -70,7 +70,7 @@ parse_covr_file <- function(path) {
 #' @family coverage output parser functions
 #' @export
 
-parse_r_coverage <- function(root) {
+parse_r_coverage <- function(root = ".") {
   fls <- dir(
     root,
     recursive = TRUE,

@@ -4,7 +4,7 @@
 \alias{parse_r_coverage}
 \title{Parse all coverage output or R files}
 \usage{
-parse_r_coverage(root)
+parse_r_coverage(root = ".")
 }
 \arguments{
 \item{root}{Root path, typically root of an R package tree.}
