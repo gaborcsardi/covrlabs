@@ -37,10 +37,16 @@
     <loc>http://gaborcsardi.org/covrlabs/reference/key.html</loc>
   </url>
   <url>
+    <loc>http://gaborcsardi.org/covrlabs/reference/parse_covr_file.html</loc>
+  </url>
+  <url>
     <loc>http://gaborcsardi.org/covrlabs/reference/parse_gcov.html</loc>
   </url>
   <url>
     <loc>http://gaborcsardi.org/covrlabs/reference/parse_gcov_file.html</loc>
+  </url>
+  <url>
+    <loc>http://gaborcsardi.org/covrlabs/reference/parse_r_coverage.html</loc>
   </url>
   <url>
     <loc>http://gaborcsardi.org/covrlabs/reference/reset_counters.html</loc>
