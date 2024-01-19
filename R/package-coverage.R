@@ -81,3 +81,24 @@ parse_r_coverage <- function(root = ".") {
   ps <- lapply(fls, parse_covr_file)
   do.call(rbind, ps)
 }
+
+#' Summarize and parse all test coverage
+#'
+#' The result includes both the R and C test coverage output.
+#'
+#' @param root Root path, typically the root of an R package tree.
+#' @return Data frame with columns:
+#'   * `file`: Absolute path to source file.
+#'   * `line`: Line number, numbering start with 1.
+#'   * `coverage`: Number of times this line was executed. If `NA`, then
+#'     it is not a code line that can be executed.
+#'   * `code`: Character vector, the actual code.
+#'
+#' @export
+
+parse_coverage <- function(root = ".") {
+  rc <- parse_r_coverage(root)
+  run_gcov(root)
+  cc <- parse_gcov(root)
+  rbind(rc, cc)
+}
