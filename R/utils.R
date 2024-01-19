@@ -51,3 +51,30 @@ ns_env <- function(package) {
 read_lines <- function(path) {
   .Call(c_read_lines, path)
 }
+
+na_omit <- function(x) {
+  x[!is.na(x)]
+}
+
+# remove common prefix from a bunch of paths
+
+remove_common_prefix <- function(x) {
+  paths <- strsplit(x, "/", fixed = TRUE)
+  pre <- ""
+  i <- 1L
+  while (TRUE) {
+    cmp <- vapply(paths, "[", "", i)
+    if (any(is.na(cmp))) {
+      break;
+    }
+    ucmp <- unique(cmp)
+    if (length(ucmp) != 1L) {
+      break
+    }
+    pre <- paste0(pre, ucmp, "/")
+    i <- i + 1L
+  }
+
+  bx <- substr(x, nchar(pre) + 1L, nchar(x))
+  bx
+}

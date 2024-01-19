@@ -1,4 +1,3 @@
-
 # TODO: most of the time is spent in readRDS() (30%) and merge() (27%),
 # then tapply() (17%).
 
@@ -53,7 +52,7 @@ parse_covr_file <- function(path) {
   dfkey <- paste(df$file, df$line)
   df$coverage[match(names(maxcov), dfkey)] <- unname(maxcov)
 
-  class(df) <- c("tbl", class(df))
+  class(df) <- c("code_coverage", "tbl", class(df))
   df
 }
 
@@ -79,7 +78,9 @@ parse_r_coverage <- function(root = ".") {
   )
 
   ps <- lapply(fls, parse_covr_file)
-  do.call(rbind, ps)
+  ps <- do.call(rbind, ps)
+  class(ps) <- unique(c("code_coverage", class(ps)))
+  ps
 }
 
 #' Summarize and parse all test coverage
@@ -100,5 +101,7 @@ parse_coverage <- function(root = ".") {
   rc <- parse_r_coverage(root)
   run_gcov(root)
   cc <- parse_gcov(root)
-  rbind(rc, cc)
+  ac <- rbind(rc, cc)
+  class(ac) <- unique(c("code_coverage", class(ac)))
+  ac
 }

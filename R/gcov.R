@@ -59,7 +59,7 @@ run_gcov <- function(root = ".") {
 parse_gcov_file <- function(path) {
   path <- normalizePath(path)
   df <- .Call(c_parse_gcov, path)
-  class(df) <- c("tbl", "data.frame")
+  class(df) <- c("code_coverage", "tbl", "data.frame")
   attr(df, "row.names") <- seq_len(length(df[[1]]))
   df
 }
@@ -90,5 +90,7 @@ parse_gcov <- function(root = ".") {
   )
 
   ps <- lapply(gcov, parse_gcov_file)
-  do.call(rbind, ps)
+  ps <- do.call(rbind, ps)
+  class(ps) <- unique(c("code_coverage", class(ps)))
+  ps
 }
