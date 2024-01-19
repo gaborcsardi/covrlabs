@@ -4,7 +4,7 @@
 \alias{parse_gcov}
 \title{Parse all \code{.gcov} files within a directory}
 \usage{
-parse_gcov(root)
+parse_gcov(root = ".")
 }
 \arguments{
 \item{root}{Root path, typically the root of an R package tree.}

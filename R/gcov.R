@@ -11,7 +11,7 @@
 #' @family gcov functions
 #' @export
 
-run_gcov <- function(root) {
+run_gcov <- function(root = ".") {
   gcno <- dir(
     root,
     recursive = TRUE,
@@ -80,7 +80,7 @@ parse_gcov_file <- function(path) {
 #' @family gcov functions
 #' @export
 
-parse_gcov <- function(root) {
+parse_gcov <- function(root = ".") {
   root <- normalizePath(root)
   gcov <- dir(
     root,

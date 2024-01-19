@@ -4,7 +4,7 @@
 \alias{run_gcov}
 \title{Run \code{gcov} summarize code coverage}
 \usage{
-run_gcov(root)
+run_gcov(root = ".")
 }
 \arguments{
 \item{root}{Root path, typically the root of an R package tree.}
