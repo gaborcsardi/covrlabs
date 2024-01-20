@@ -2,7 +2,7 @@
 #'
 #' @param object Code coverage object, typically from the
 #'   [parse_coverage()] function.
-#' @param paths If not `NULL`, then it may be a character vector of
+#' @param include_paths If not `NULL`, then it may be a character vector of
 #'   paths, to only include files within these paths.
 #' @param ... Currently ignored.
 #' @return Data frame with columns:
@@ -18,7 +18,7 @@
 #' @family code coverage reporting functions
 #' @export
 
-summary.code_coverage <- function(object, paths = NULL, ...) {
+summary.code_coverage <- function(object, include_paths = NULL, ...) {
   perfile <- tapply(object$coverage, object$file, simplify = FALSE,
     function(x) {
       x <- na_omit(x)
@@ -45,7 +45,7 @@ summary.code_coverage <- function(object, paths = NULL, ...) {
     uncovered = unc$uncovered
   )
 
-  df <- filter_coverage(df, "path", paths = paths)
+  df <- filter_coverage(df, "path", include_paths = include_paths)
 
   class(df) <- unique(c("code_coverage_summary", "tbl", class(df)))
   df
@@ -127,15 +127,15 @@ calculate_runs <- function(x) {
   abs(rbind(x[beg], x[end]))
 }
 
-filter_coverage <- function(cov, colname, paths = NULL) {
-  if (length(paths) == 0) {
+filter_coverage <- function(cov, colname, include_paths = NULL) {
+  if (length(include_paths) == 0) {
     return(cov)
   }
 
-  paths <- as.character(paths)
-  paths <- normalizePath(paths, mustWork = FALSE)
+  include_paths <- as.character(include_paths)
+  include_paths <- normalizePath(include_paths, mustWork = FALSE)
   keep <- rep(FALSE, nrow(cov))
-  for (path in paths) {
+  for (path in include_paths) {
     keep <- keep | startsWith(cov[[colname]], path)
   }
 

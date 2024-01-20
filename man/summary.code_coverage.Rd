@@ -4,13 +4,13 @@
 \alias{summary.code_coverage}
 \title{Summarize code coverage results}
 \usage{
-\method{summary}{code_coverage}(object, paths = NULL, ...)
+\method{summary}{code_coverage}(object, include_paths = NULL, ...)
 }
 \arguments{
 \item{object}{Code coverage object, typically from the
 \code{\link[=parse_coverage]{parse_coverage()}} function.}
 
-\item{paths}{If not \code{NULL}, then it may be a character vector of
+\item{include_paths}{If not \code{NULL}, then it may be a character vector of
 paths, to only include files within these paths.}
 
 \item{...}{Currently ignored.}
