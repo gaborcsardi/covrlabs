@@ -10,3 +10,9 @@
 ^pkgdown$
 ^\.vscode$
 ^vignettes$
+^src/.*[.]o$
+^src/.*[.]gcda$
+^src/.*[.]gcno$
+^R/covrlabs$
+^libs$
+^Meta$

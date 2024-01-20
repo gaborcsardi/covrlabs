@@ -6,3 +6,9 @@
 .quarto
 .vscode
 docs
+/src/*.o
+/src/*.gcda
+/src/*.gcno
+/R/covrlabs
+/libs
+/Meta
