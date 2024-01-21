@@ -33,7 +33,7 @@ static const R_CallMethodDef callMethods[]  = {
 
   { "c_read_file_raw",   (DL_FUNC) &c_read_file_raw,   1 },
   { "c_read_lines",      (DL_FUNC) &c_read_lines,      1 },
-  { "c_parse_gcov",      (DL_FUNC) &c_parse_gcov,      1 },
+  { "c_parse_gcov",      (DL_FUNC) &c_parse_gcov,      2 },
 
   { "c_find_last_line",  (DL_FUNC) &c_find_last_line,  1 },
 

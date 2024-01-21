@@ -19,9 +19,12 @@ run_gcov <- function(root = ".") {
     full.names = TRUE
   )
   dirs <- dirname(gcno)
+  # TODO: better way to determine the right directoeries for running gcov
+  dirs <- ifelse(basename(dirs) == "src", dirs, dirname(dirs))
   udirs <- unique(dirs)
   pxs <- lapply(udirs, function(d) {
-    fnms <- basename(gcno[dirs == d])
+    # need relative paths from d
+    fnms <- dir(d, recursive = TRUE, pattern = "[.]gcno$")
     processx::process$new("gcov", c("-p", "-b", fnms), wd = d)
   })
   names(pxs) <- udirs
@@ -58,10 +61,23 @@ run_gcov <- function(root = ".") {
 
 parse_gcov_file <- function(path) {
   path <- normalizePath(path)
-  df <- .Call(c_parse_gcov, path)
+  disp <- display_name(path)
+  df <- .Call(c_parse_gcov, path, disp)
   class(df) <- c("code_coverage", "tbl", "data.frame")
   attr(df, "row.names") <- seq_len(length(df[[1]]))
   df
+}
+
+display_name <- function(x) {
+  x <- sub("[.]gcov", "", x)
+  if (startsWith(basename(x), "^")) {
+    x <- gsub("^", "..", fixed = TRUE, x)
+    x <- gsub("#", "/", fixed = TRUE, x)
+    x
+  } else {
+    b <- gsub("#", "/", basename(x))
+    paste0(dirname(x), "/", b)
+  }
 }
 
 #' Parse all `.gcov` files within a directory
@@ -88,6 +104,9 @@ parse_gcov <- function(root = ".") {
     pattern = "[.]gcov$",
     full.names = TRUE
   )
+
+  # drop files that have an absolute path, typically system headers
+  gcov <- gcov[!startsWith(basename(gcov), "#")]
 
   ps <- lapply(gcov, parse_gcov_file)
   ps <- do.call(rbind, ps)

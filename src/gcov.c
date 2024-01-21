@@ -177,7 +177,7 @@ SEXP c_find_last_line(SEXP bytes) {
   return Rf_ScalarInteger((int) last);
 }
 
-SEXP c_parse_gcov(SEXP path) {
+SEXP c_parse_gcov(SEXP path, SEXP displayname) {
   SEXP bytes = PROTECT(c_read_file_raw(path));
   size_t nlines = find_last_line((char*) RAW(bytes), XLENGTH(bytes));
   const char *res_names[] = { "file", "line", "coverage", "code", "" };
@@ -192,7 +192,7 @@ SEXP c_parse_gcov(SEXP path) {
   SEXP rcov = VECTOR_ELT(res, 2);
   SEXP code = VECTOR_ELT(res, 3);
 
-  SEXP file = STRING_ELT(path, 0);
+  SEXP file = STRING_ELT(displayname, 0);
   for (size_t i = 0; i < nlines; i++) {
     SET_STRING_ELT(rfil, i, file);
   }
