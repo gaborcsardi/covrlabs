@@ -24,6 +24,7 @@ Report lines \emph{not} covered by tests, for each file
 }
 \seealso{
 Other code coverage reporting functions: 
+\code{\link{file_coverage}()},
 \code{\link{summary.code_coverage}()}
 }
 \concept{code coverage reporting functions}

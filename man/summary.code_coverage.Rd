@@ -33,6 +33,7 @@ Summarize code coverage results
 }
 \seealso{
 Other code coverage reporting functions: 
+\code{\link{file_coverage}()},
 \code{\link{uncovered_lines}()}
 }
 \concept{code coverage reporting functions}

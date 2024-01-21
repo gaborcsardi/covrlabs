@@ -44,11 +44,40 @@ summary.code_coverage <- function(object, include_paths = NULL, ...) {
     # paths are in the same order, so this works w/o mapping:
     uncovered = unc$uncovered
   )
-
-  df <- filter_coverage(df, "path", include_paths = include_paths)
-
   class(df) <- unique(c("code_coverage_summary", "tbl", class(df)))
+
+  df <- add_dir_stats(df)
+  df <- filter_coverage(df, "path", include_paths = include_paths)
   df
+}
+
+add_dir_stats <- function(df) {
+  pres <- common_prefixes(unique(df$path))
+
+  sm <- lapply(pres, function(p) {
+    sel <- which(startsWith(df$path, p))
+    tt <- sum(df$total[sel])
+    co <- sum(df$covered[sel])
+    pc <- if (tt == 0) 1.0 else co/tt
+    c(tt, co, pc)
+  })
+
+  nm <- matrix(0L, nrow = 2, ncol = 0)
+  df2 <- data.frame(
+    stringsAsFactors = FALSE,
+    path = pres,
+    relpath = pres,
+    total = vapply(sm, "[[", 1, 1, USE.NAMES = FALSE),
+    covered = vapply(sm, "[[", 1, 2, USE.NAMES = FALSE),
+    coverage = vapply(sm, "[[", 1, 3, USE.NAMES = FALSE),
+    uncovered = I(replicate(length(pres), nm))
+  )
+
+  ret <- rbind(df, df2)
+  ret$relpath <- remove_common_prefix(ret$path)
+
+  ret <- ret[order(ret$relpath), ]
+  ret
 }
 
 format_intervals <- function(u) {

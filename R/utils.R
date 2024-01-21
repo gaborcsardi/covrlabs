@@ -56,9 +56,10 @@ na_omit <- function(x) {
   x[!is.na(x)]
 }
 
-# remove common prefix from a bunch of paths
+# Common prefix for a bunch of paths
 
-remove_common_prefix <- function(x) {
+common_prefix <- function(x) {
+  x <- unique(x)
   paths <- strsplit(x, "/", fixed = TRUE)
   pre <- ""
   i <- 1L
@@ -75,6 +76,32 @@ remove_common_prefix <- function(x) {
     i <- i + 1L
   }
 
+  pre
+}
+
+remove_common_prefix <- function(x) {
+  pre <- common_prefix(x)
+  remove_prefix(x, pre)
+}
+
+remove_prefix <- function(x, pre) {
   bx <- substr(x, nchar(pre) + 1L, nchar(x))
   bx
+}
+
+common_prefixes <- function(x) {
+  x <- unique(x)
+  ret <- sub("/$", "", common_prefix(x))
+  nxt <- setdiff(unique(dirname(x)), c(x, ret))
+  while (TRUE) {
+    ret <- c(ret, nxt)
+    if (length(nxt) <= 1) break
+    nxt <- setdiff(unique(dirname(nxt)), ret)
+  }
+  sort(ret)
+}
+
+ansi_format <- function(x) {
+  nc <- cli::ansi_nchar(x, type = "width")
+  cli::ansi_align(x, width = max(nc))
 }
