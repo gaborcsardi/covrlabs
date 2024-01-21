@@ -39,13 +39,14 @@ format.files_coverage <- function(x, ...) {
 format.file_coverage <- function(x, ...) {
   cyan <- cli::make_ansi_style("#1a3939", bg = TRUE)
   header <- paste0(
-    "--- ", format(attr(x, "covered")),
+    " ", format(attr(x, "covered")),
     " / ", format(attr(x, "total")),
     " (", round(attr(x, "coverage") * 100), "%", ")",
     "  ", attr(x, "filename")
   )
   nc <- max(cli::ansi_nchar(x, type = "width"))
-  c(cyan(cli::ansi_align(header, width = nc)), x, "")
+  r <- cli::rule(width = nc)
+  c(r, cyan(cli::ansi_align(header, width = nc)), r, x, "")
 }
 
 #' @rdname file_coverage
