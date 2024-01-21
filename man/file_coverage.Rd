@@ -30,7 +30,8 @@ paths, to only include files within these paths.}
 \item{...}{Currently ignored.}
 
 \item{pager}{Whether to show the result in the system pager.
-The default tries to guess when this makes sense.}
+The default tries to guess when this makes sense. It also tries to
+guess whether the default pager can show multiple files.}
 }
 \value{
 A list with class \code{files_coverage}. Each list element is a
