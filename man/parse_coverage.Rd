@@ -4,10 +4,14 @@
 \alias{parse_coverage}
 \title{Summarize and parse all test coverage}
 \usage{
-parse_coverage(root = ".")
+parse_coverage(root = ".", ignore_files = NULL)
 }
 \arguments{
 \item{root}{Root path, typically the root of an R package tree.}
+
+\item{ignore_files}{Character vector, list of file names or globs to
+ignore. They are interpreted relative from \code{root}. By default they
+are read from the \code{root/.covrignore} file, if it exists.}
 }
 \value{
 Data frame with columns:

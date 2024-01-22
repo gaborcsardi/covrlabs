@@ -88,6 +88,9 @@ parse_r_coverage <- function(root = ".") {
 #' The result includes both the R and C test coverage output.
 #'
 #' @param root Root path, typically the root of an R package tree.
+#' @param ignore_files Character vector, list of file names or globs to
+#'   ignore. They are interpreted relative from `root`. By default they
+#'   are read from the `root/.covrignore` file, if it exists.
 #' @return Data frame with columns:
 #'   * `file`: Absolute path to source file.
 #'   * `line`: Line number, numbering start with 1.
@@ -97,11 +100,20 @@ parse_r_coverage <- function(root = ".") {
 #'
 #' @export
 
-parse_coverage <- function(root = ".") {
+parse_coverage <- function(root = ".", ignore_files = NULL) {
   rc <- parse_r_coverage(root)
   run_gcov(root)
   cc <- parse_gcov(root)
   ac <- rbind(rc, cc)
   class(ac) <- unique(c("code_coverage", class(ac)))
+
+  if (is.null(ignore_files)) {
+    ignpath <- file.path(root, ".covrignore")
+    if (file.exists(ignpath)) {
+      ignore_files <- read_lines(ignpath)
+    }
+  }
+
+  ac <- ignore_coverage(ac, root, ignore_files)
   ac
 }
