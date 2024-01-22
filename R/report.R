@@ -127,6 +127,9 @@ format_intervals <- function(u) {
 
 print.code_coverage_summary <- function(x, ...) {
 
+  # drop files with no code (all lines ignored)
+  x <- x[x$total != 0, ]
+
   if (cli::num_ansi_colors() >= 256) {
     style_yeah <- cli::make_ansi_style("#319a31")
     style_nope <- cli::make_ansi_style("#b41d57")
