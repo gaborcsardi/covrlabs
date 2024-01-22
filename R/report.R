@@ -76,7 +76,40 @@ add_dir_stats <- function(df) {
   ret <- rbind(df, df2)
   ret$relpath <- remove_common_prefix(ret$path)
 
+  # add a trailing '/' to directory summaries
+  idx2 <- seq_len(nrow(df2)) + nrow(df)
+  ret$relpath[idx2] <- paste0(ret$relpath[idx2], "/")
   ret <- ret[order(ret$relpath), ]
+
+  # indent subdirectories
+  dsp <- ret$relpath
+  dsp[1] <- "All files"
+  st <- c("", dsp[2])
+  for (i in utils::tail(seq_along(dsp), -2)) {
+    # going up, if possible
+    stt <- utils::tail(st, 1)
+    und <- startsWith(dsp[i], stt)
+    while (!und && length(st) > 0) {
+      st <- utils::head(st, -1)
+      stt <- utils::tail(st, 1)
+      und <- startsWith(dsp[i], stt)
+    }
+
+    # format current
+    if (und) {
+      dsp[i] <- paste0(
+        strrep(" ", length(st) - 1L),
+        substr(dsp[i], nchar(stt) + 1, nchar(dsp[i]))
+      )
+    }
+
+    # going down?
+    if (endsWith(ret$relpath[i], "/")) {
+      st <- c(st, ret$relpath[i])
+    }
+  }
+
+  ret$displayname <- dsp
   ret
 }
 
@@ -93,19 +126,42 @@ format_intervals <- function(u) {
 #' @export
 
 print.code_coverage_summary <- function(x, ...) {
-  pth <- format(substr(x$relpath, 1, 40))
+
+  if (cli::num_ansi_colors() >= 256) {
+    style_yeah <- cli::make_ansi_style("#319a31")
+    style_nope <- cli::make_ansi_style("#b41d57")
+  } else {
+    style_yeah <- style_nope <- function(x) x
+  }
+  good <- x$coverage >= 0.95
+  bad <- x$coverage < 0.80
+  style <- function(x) {
+    ifelse (
+      good,
+      style_yeah(x),
+      ifelse(bad, style_nope(x), x)
+    )
+  }
+
+  pth <- format(substr(x$displayname, 1, 40))
   tot <- format(x$total)
   cov <- format(x$covered)
   pct <- paste0(format(as.integer(x$coverage * 100)), "%")
   unc <- vapply(x$uncovered, format_intervals, character(1))
 
   lines <- paste(
-    pth,
-    tot,
-    cov,
-    pct,
-    substr(unc, 1, 100)
+    ansi_format(c("", style(pth))), "|",
+    ansi_format(c("TOTAL", tot), align = "right"), "|",
+    ansi_format(c("COVER", cov), align = "right"), "|",
+    ansi_format(c("%", style(pct)), align = "right"), "|",
+    ansi_format(c("UNCOVERED", substr(unc, 1, 100)))
   )
+
+  cyan <- cli::make_ansi_style("#1a3939", bg = TRUE)
+  lines[1] <- cyan(lines[1])
+  if (length(lines) > 20) {
+    lines <- c(lines, lines[2], lines[1])
+  }
 
   writeLines(lines)
 

@@ -101,7 +101,7 @@ common_prefixes <- function(x) {
   sort(ret)
 }
 
-ansi_format <- function(x) {
+ansi_format <- function(x, ...) {
   nc <- cli::ansi_nchar(x, type = "width")
-  cli::ansi_align(x, width = max(nc))
+  cli::ansi_align(x, width = max(nc), ...)
 }
